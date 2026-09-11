@@ -1,0 +1,356 @@
+use ratatui::{
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style, Stylize},
+    text::{Line, Span},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table, Tabs},
+    Frame,
+};
+
+use crate::components::containers::ContainerRow;
+use crate::models::app::{ActiveTab, App};
+
+pub fn render(app: &mut App, frame: &mut Frame) {
+    let area = frame.area();
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(0),
+            Constraint::Length(4),
+        ])
+        .split(area);
+
+    render_header(app, frame, chunks[0]);
+    render_main_content(app, frame, chunks[1]);
+    render_footer(app, frame, chunks[2]);
+}
+
+fn render_header(app: &App, frame: &mut Frame, area: Rect) {
+    let titles = vec![
+        "[1] Containers",
+        "[2] Images",
+        "[3] Volumes",
+        "[4] Networks",
+        "[5] System",
+    ];
+    let selected_index = match app.active_tab {
+        ActiveTab::Containers => 0,
+        ActiveTab::Images => 1,
+        ActiveTab::Volumes => 2,
+        ActiveTab::Networks => 3,
+        ActiveTab::System => 4,
+    };
+
+    let tabs = Tabs::new(titles)
+        .block(Block::default().borders(Borders::ALL).title(" 🐳 Easy Docker "))
+        .highlight_style(
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
+        .select(selected_index);
+
+    frame.render_widget(tabs, area);
+}
+
+fn render_main_content(app: &mut App, frame: &mut Frame, area: Rect) {
+    match app.active_tab {
+        ActiveTab::Containers => render_containers_tab(app, frame, area),
+        _ => {
+            let placeholder = Paragraph::new("Tab coming soon...")
+                .block(Block::default().borders(Borders::ALL).title(" Tab "));
+            frame.render_widget(placeholder, area);
+        }
+    }
+}
+
+fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
+    let main_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+        .split(area);
+
+    let visible_rows = app.containers_tab.get_visible_rows();
+
+    let rows: Vec<Row> = visible_rows
+        .iter()
+        .map(|row_item| match row_item {
+            ContainerRow::GroupHeader {
+                name,
+                total_count,
+                running_count,
+                is_expanded,
+            } => {
+                let icon = if *is_expanded { "▼ 📁" } else { "▶ 📁" };
+                let group_name_cell = Cell::from(format!("{} {}", icon, name))
+                    .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
+                let info_cell = Cell::from(format!("({}/{} running)", running_count, total_count))
+                    .style(Style::default().fg(Color::DarkGray));
+                let status_cell = if *running_count > 0 {
+                    Cell::from("🟢 active group").green()
+                } else {
+                    Cell::from("🔴 inactive group").red()
+                };
+
+                Row::new(vec![group_name_cell, info_cell, status_cell])
+                    .style(Style::default().bg(Color::Reset))
+            }
+            ContainerRow::ChildContainer {
+                container,
+                is_last_in_group,
+            } => {
+                let raw_name = container
+                    .names
+                    .as_ref()
+                    .and_then(|n| n.first())
+                    .map(|s| s.as_str())
+                    .unwrap_or("N/A");
+                let clean_name = raw_name.strip_prefix('/').unwrap_or(raw_name);
+                let branch = if *is_last_in_group {
+                    "  └─ "
+                } else {
+                    "  ├─ "
+                };
+
+                let name_cell = Cell::from(format!("{}{}", branch, clean_name));
+                let image = container.image.as_deref().unwrap_or("N/A").to_string();
+                let state = container
+                    .state
+                    .as_ref()
+                    .map(|s| s.as_ref())
+                    .unwrap_or("N/A");
+
+                let state_cell = match state {
+                    "running" => Cell::from("🟢 running").green(),
+                    "exited" => Cell::from("🔴 stopped").red(),
+                    _ => Cell::from(state.to_string()).yellow(),
+                };
+
+                Row::new(vec![name_cell, Cell::from(image), state_cell])
+            }
+            ContainerRow::StandaloneContainer { container } => {
+                let raw_name = container
+                    .names
+                    .as_ref()
+                    .and_then(|n| n.first())
+                    .map(|s| s.as_str())
+                    .unwrap_or("N/A");
+                let clean_name = raw_name.strip_prefix('/').unwrap_or(raw_name);
+
+                let name_cell = Cell::from(format!("📦 {}", clean_name)).bold();
+                let image = container.image.as_deref().unwrap_or("N/A").to_string();
+                let state = container
+                    .state
+                    .as_ref()
+                    .map(|s| s.as_ref())
+                    .unwrap_or("N/A");
+
+                let state_cell = match state {
+                    "running" => Cell::from("🟢 running").green(),
+                    "exited" => Cell::from("🔴 stopped").red(),
+                    _ => Cell::from(state.to_string()).yellow(),
+                };
+
+                Row::new(vec![name_cell, Cell::from(image), state_cell])
+            }
+        })
+        .collect();
+
+    let selected_index = app.containers_tab.table_state.selected();
+
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Percentage(45),
+            Constraint::Percentage(35),
+            Constraint::Percentage(20),
+        ],
+    )
+    .header(
+        Row::new(vec!["NAME", "IMAGE / INFO", "STATUS"])
+            .style(Style::default().fg(Color::Yellow)),
+    )
+    .block(Block::default().borders(Borders::ALL).title(" Containers "))
+    .row_highlight_style(Style::default().bg(Color::DarkGray));
+
+    frame.render_stateful_widget(
+        table,
+        main_chunks[0],
+        &mut app.containers_tab.table_state,
+    );
+
+    let inspector_rows = app.containers_tab.get_visible_rows();
+    let selected_info = selected_index.and_then(|idx| inspector_rows.get(idx));
+
+    match selected_info {
+        Some(ContainerRow::ChildContainer { container, .. })
+        | Some(ContainerRow::StandaloneContainer { container }) => {
+            let id_short = container
+                .id
+                .as_deref()
+                .map(|id| id.chars().take(12).collect::<String>())
+                .unwrap_or_else(|| "N/A".into());
+            let raw_name = container
+                .names
+                .as_ref()
+                .and_then(|n| n.first())
+                .map(|s| s.as_str())
+                .unwrap_or("N/A");
+            let name = raw_name.strip_prefix('/').unwrap_or(raw_name);
+            let image = container.image.as_deref().unwrap_or("N/A");
+            let state = container
+                .state
+                .as_ref()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "N/A".into());
+            let status = container.status.as_deref().unwrap_or("N/A");
+            let command = container.command.as_deref().unwrap_or("N/A");
+
+            let ports_text = container
+                .ports
+                .as_ref()
+                .map(|ports| {
+                    let formatted: Vec<String> = ports
+                        .iter()
+                        .map(|p| {
+                            format!(
+                                "{}:{}->{}/{}",
+                                p.ip.as_deref().unwrap_or(""),
+                                p.public_port.unwrap_or(0),
+                                p.private_port,
+                                p.typ
+                                    .as_ref()
+                                    .map(|t| t.to_string())
+                                    .unwrap_or_default()
+                            )
+                        })
+                        .collect();
+                    if formatted.is_empty() {
+                        "None".into()
+                    } else {
+                        formatted.join(", ")
+                    }
+                })
+                .unwrap_or_else(|| "None".into());
+
+            let text = vec![
+                Line::from(vec![
+                    Span::raw("Name: "),
+                    Span::styled(name, Style::default().fg(Color::Cyan).bold()),
+                ]),
+                Line::from(vec![
+                    Span::raw("ID: "),
+                    Span::styled(id_short, Style::default().fg(Color::Yellow)),
+                ]),
+                Line::from(vec![Span::raw("Image: "), Span::raw(image)]),
+                Line::from(vec![
+                    Span::raw("State: "),
+                    Span::styled(
+                        state.clone(),
+                        if state == "running" {
+                            Style::default().fg(Color::Green)
+                        } else {
+                            Style::default().fg(Color::Red)
+                        },
+                    ),
+                ]),
+                Line::from(vec![Span::raw("Status: "), Span::raw(status)]),
+                Line::from(vec![Span::raw("Command: "), Span::raw(command)]),
+                Line::from(vec![Span::raw("Ports: "), Span::raw(ports_text)]),
+            ];
+
+            let inspector = Paragraph::new(text).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(format!(" Container Details ({}) ", name)),
+            );
+            frame.render_widget(inspector, main_chunks[1]);
+        }
+        Some(ContainerRow::GroupHeader {
+            name,
+            total_count,
+            running_count,
+            ..
+        }) => {
+            let text = vec![
+                Line::from(vec![
+                    Span::raw("Group: "),
+                    Span::styled(*name, Style::default().fg(Color::Cyan).bold()),
+                ]),
+                Line::from(vec![
+                    Span::raw("Total Containers: "),
+                    Span::raw(total_count.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::raw("Running Containers: "),
+                    Span::raw(running_count.to_string()),
+                ]),
+            ];
+            let inspector = Paragraph::new(text).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(format!(" Compose Project ({}) ", name)),
+            );
+            frame.render_widget(inspector, main_chunks[1]);
+        }
+        None => {
+            let inspector_block = Paragraph::new("Select a container to inspect").block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" Container Stats "),
+            );
+            frame.render_widget(inspector_block, main_chunks[1]);
+        }
+    }
+}
+
+fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
+    let (title_text, title_style) = if let Some(toast) = &app.toast_message {
+        (
+            format!(" ⌨ Controls & Help │ 🔔 {} ", toast),
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )
+    } else {
+        (
+            " ⌨ Controls & Help ".to_string(),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
+    };
+
+    let text = vec![
+        Line::from(vec![
+            Span::styled(" [↑/↓ / j/k] ", Style::default().fg(Color::Yellow).bold()),
+            Span::raw("Navigate  │ "),
+            Span::styled("[Click] ", Style::default().fg(Color::Yellow).bold()),
+            Span::raw("Select  │ "),
+            Span::styled("[Space/Enter] ", Style::default().fg(Color::Yellow).bold()),
+            Span::raw("Toggle Group  │ "),
+            Span::styled("[1-5 / Tab] ", Style::default().fg(Color::Yellow).bold()),
+            Span::raw("Switch Tab"),
+        ]),
+        Line::from(vec![
+            Span::styled(" [s] ", Style::default().fg(Color::Green).bold()),
+            Span::raw("Start  │ "),
+            Span::styled("[x] ", Style::default().fg(Color::Red).bold()),
+            Span::raw("Stop  │ "),
+            Span::styled("[r] ", Style::default().fg(Color::Cyan).bold()),
+            Span::raw("Restart  │ "),
+            Span::styled("[d] ", Style::default().fg(Color::Magenta).bold()),
+            Span::raw("Delete Container  │ "),
+            Span::styled("[q] ", Style::default().fg(Color::Gray).bold()),
+            Span::raw("Quit"),
+        ]),
+    ];
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(Span::styled(title_text, title_style));
+
+    let footer = Paragraph::new(text).block(block);
+    frame.render_widget(footer, area);
+}
