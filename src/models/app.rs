@@ -2,6 +2,7 @@
 
 use bollard::Docker;
 use crate::components::containers::ContainersTab;
+use crate::components::volumes::VolumesTab;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ActiveTab {
@@ -28,6 +29,7 @@ pub struct App {
     pub should_quit: bool,
     pub toast_message: Option<String>,
     pub containers_tab: ContainersTab,
+    pub volumes_tab:VolumesTab,
 }
 
 impl App {
@@ -40,6 +42,7 @@ impl App {
             client: None,
             toast_message: None,
             containers_tab: ContainersTab::new(),
+            volumes_tab: VolumesTab::new(),
         }
     }
 }

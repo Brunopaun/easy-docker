@@ -7,14 +7,11 @@ use crate::services::docker::{
     remove_container, restart_container, start_container, stop_container,
 };
 use crate::AppEvent;
+use crate::components::generics::GroupHeader;
+
 
 pub enum ContainerRow<'a> {
-    GroupHeader {
-        name: &'a str,
-        total_count: usize,
-        running_count: usize,
-        is_expanded: bool,
-    },
+    GroupHeader(GroupHeader<'a>),
     ChildContainer {
         container: &'a ContainerSummary,
         is_last_in_group: bool,
@@ -67,12 +64,12 @@ impl ContainersTab {
                 .count();
             let is_expanded = !self.collapsed_groups.contains(*project_name);
 
-            rows.push(ContainerRow::GroupHeader {
+            rows.push(ContainerRow::GroupHeader(GroupHeader {
                 name: project_name,
                 total_count,
                 running_count,
                 is_expanded,
-            });
+            }));
 
             if is_expanded {
                 let len = group_containers.len();
@@ -92,12 +89,12 @@ impl ContainersTab {
         rows
     }
 
-    pub fn toggle_group_expand(&mut self) {
+    pub fn toggle_group(&mut self) {
         if let Some(selected) = self.table_state.selected() {
             let rows = self.get_visible_rows();
-            if let Some(ContainerRow::GroupHeader {
+            if let Some(ContainerRow::GroupHeader(GroupHeader {
                 name, is_expanded, ..
-            }) = rows.get(selected)
+            })) = rows.get(selected)
             {
                 let group_name = name.to_string();
                 let is_exp = *is_expanded;
@@ -156,7 +153,7 @@ impl ContainersTab {
                 let rows_count = self.get_visible_rows().len();
                 if clicked_row < rows_count {
                     self.table_state.select(Some(clicked_row));
-                    self.toggle_group_expand();
+                    self.toggle_group();
                 }
             }
         }

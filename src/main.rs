@@ -18,8 +18,9 @@ pub enum AppEvent {
     Input(crossterm::event::KeyEvent),
     Mouse(crossterm::event::MouseEvent),
     Tick,
-    DockerUpdated(Vec<bollard::models::ContainerSummary>),
     DockerInitialized(bollard::Docker),
+    ContainersUpdated(Vec<bollard::models::ContainerSummary>),
+    VolumesUpdated(Vec<bollard::models::Volume>),
     ContainerDeleted {
         id: String,
         result: Result<(), String>,
@@ -82,10 +83,24 @@ async fn main() -> color_eyre::Result<()> {
             loop {
                 if let Ok(containers) = services::docker::list_containers(&docker).await {
                     if tx_docker
-                        .send(AppEvent::DockerUpdated(containers))
+                        .send(AppEvent::ContainersUpdated(containers))
                         .await
                         .is_err()
                     {
+                        break;
+                    }
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+        }
+    });
+
+    let tx_docker = tx.clone();
+    tokio::spawn(async move {
+        if let Ok(docker) = services::docker::get_docker_client().await {
+            loop {
+                if let Ok(volumes) = services::docker::list_volumes(&docker).await {
+                    if tx_docker.send(AppEvent::VolumesUpdated(volumes)).await.is_err() {
                         break;
                     }
                 }
@@ -105,7 +120,7 @@ async fn main() -> color_eyre::Result<()> {
                     KeyCode::Down | KeyCode::Char('j') => app.containers_tab.next_container(),
                     KeyCode::Up | KeyCode::Char('k') => app.containers_tab.previous_container(),
                     KeyCode::Char(' ') | KeyCode::Enter | KeyCode::Char('o') => {
-                        app.containers_tab.toggle_group_expand();
+                        app.containers_tab.toggle_group();
                     }
                     KeyCode::Char('1') => app.active_tab = models::app::ActiveTab::Containers,
                     KeyCode::Char('2') => app.active_tab = models::app::ActiveTab::Images,
@@ -145,7 +160,7 @@ async fn main() -> color_eyre::Result<()> {
                 AppEvent::Tick => {
                     // Periodic UI animation / tick updates if needed
                 }
-                AppEvent::DockerUpdated(containers) => {
+                AppEvent::ContainersUpdated(containers) => {
                     app.containers_tab.containers = containers;
                     app.containers_tab.is_loading = false;
                     if app.containers_tab.table_state.selected().is_none()
@@ -187,6 +202,9 @@ async fn main() -> color_eyre::Result<()> {
                         }
                     }
                 }
+                AppEvent::VolumesUpdated(volumes) => {
+                    app.volumes_tab.volumes = volumes;
+                },
                 AppEvent::ClearToast => {
                     app.toast_message = None;
                 }
