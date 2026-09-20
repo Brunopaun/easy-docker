@@ -1,5 +1,9 @@
 # 🐳 Easy Docker
 
+<p align="center">
+  <img src="assets/logo.jpg" alt="Easy Docker Capybara Mascot" width="400"/>
+</p>
+
 > A fast, lightweight, and modern Terminal User Interface (TUI) for managing Docker containers built in Rust.
 
 ![Rust](https://img.shields.io/badge/Rust-2024_Edition-orange.svg)
