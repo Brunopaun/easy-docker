@@ -159,7 +159,7 @@ impl ContainersTab {
         }
     }
 
-    fn get_selected_container_id(&self) -> Option<String> {
+    pub fn get_selected_container_id(&self) -> Option<String> {
         let selected_index = self.table_state.selected()?;
         let rows = self.get_visible_rows();
         match rows.get(selected_index)? {

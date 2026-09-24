@@ -30,6 +30,11 @@ pub enum AppEvent {
         action: String,
         result: Result<(), String>,
     },
+    VolumeActionDone {
+        name:String,
+        action: String,
+        result: Result<(), String>,
+    },
     ClearToast,
 }
 
@@ -115,48 +120,111 @@ async fn main() -> color_eyre::Result<()> {
 
         if let Some(event) = rx.recv().await {
             match event {
-                AppEvent::Input(key) => match key.code {
-                    KeyCode::Char('q') => app.should_quit = true,
-                    KeyCode::Down | KeyCode::Char('j') => app.containers_tab.next_container(),
-                    KeyCode::Up | KeyCode::Char('k') => app.containers_tab.previous_container(),
-                    KeyCode::Char(' ') | KeyCode::Enter | KeyCode::Char('o') => {
-                        app.containers_tab.toggle_group();
-                    }
-                    KeyCode::Char('1') => app.active_tab = models::app::ActiveTab::Containers,
-                    KeyCode::Char('2') => app.active_tab = models::app::ActiveTab::Images,
-                    KeyCode::Char('3') => app.active_tab = models::app::ActiveTab::Volumes,
-                    KeyCode::Char('4') => app.active_tab = models::app::ActiveTab::Networks,
-                    KeyCode::Char('5') => app.active_tab = models::app::ActiveTab::System,
-                    KeyCode::Char('s') => {
-                        app.containers_tab
-                            .start_container(&app.client, tx_docker, &mut app.toast_message);
-                    }
-                    KeyCode::Char('x') => {
-                        app.containers_tab
-                            .stop_container(&app.client, tx_docker, &mut app.toast_message);
-                    }
-                    KeyCode::Char('r') => {
-                        app.containers_tab
-                            .restart_container(&app.client, tx_docker, &mut app.toast_message);
-                    }
-                    KeyCode::Char('d') => {
-                        app.containers_tab
-                            .delete_container(&app.client, tx_docker, &mut app.toast_message);
-                    }
-                    KeyCode::Tab => {
-                        app.active_tab = match app.active_tab {
-                            models::app::ActiveTab::Containers => models::app::ActiveTab::Images,
-                            models::app::ActiveTab::Images => models::app::ActiveTab::Volumes,
-                            models::app::ActiveTab::Volumes => models::app::ActiveTab::Networks,
-                            models::app::ActiveTab::Networks => models::app::ActiveTab::System,
-                            models::app::ActiveTab::System => models::app::ActiveTab::Containers,
-                        };
-                    }
+                AppEvent::Input(key) => match app.view_mode {
+                    models::app::ViewMode::ConfirmDeleteModal => match key.code {
+                        KeyCode::Char('y') | KeyCode::Enter => {
+                            if let Some(target) = app.delete_target.take() {
+                                match target {
+                                    models::app::DeleteTarget::Container(_) => {
+                                        app.containers_tab.delete_container(
+                                            &app.client,
+                                            tx_docker,
+                                            &mut app.toast_message,
+                                        );
+                                    }
+                                    models::app::DeleteTarget::Volume(_) => {
+                                        app.volumes_tab.delete_volume(
+                                            &app.client,
+                                            tx_docker,
+                                            &mut app.toast_message,
+                                        );
+                                    }
+                                }
+                            }
+                            app.view_mode = models::app::ViewMode::Normal;
+                        }
+                        KeyCode::Char('n') | KeyCode::Esc => {
+                            app.delete_target = None;
+                            app.view_mode = models::app::ViewMode::Normal;
+                        }
+                        _ => {}
+                    },
+                    models::app::ViewMode::Normal => match key.code {
+                        KeyCode::Char('q') => app.should_quit = true,
+                        KeyCode::Down | KeyCode::Char('j') => match app.active_tab {
+                            models::app::ActiveTab::Containers => app.containers_tab.next_container(),
+                            models::app::ActiveTab::Volumes => app.volumes_tab.next_volume(),
+                            _ => {}
+                        },
+                        KeyCode::Up | KeyCode::Char('k') => match app.active_tab {
+                            models::app::ActiveTab::Containers => app.containers_tab.previous_container(),
+                            models::app::ActiveTab::Volumes => app.volumes_tab.previous_volume(),
+                            _ => {}
+                        },
+                        KeyCode::Char(' ') | KeyCode::Enter | KeyCode::Char('o') => match app.active_tab {
+                            models::app::ActiveTab::Containers => app.containers_tab.toggle_group(),
+                            models::app::ActiveTab::Volumes => app.volumes_tab.toggle_group(),
+                            _ => {}
+                        },
+                        KeyCode::Char('1') => app.active_tab = models::app::ActiveTab::Containers,
+                        KeyCode::Char('2') => app.active_tab = models::app::ActiveTab::Images,
+                        KeyCode::Char('3') => app.active_tab = models::app::ActiveTab::Volumes,
+                        KeyCode::Char('4') => app.active_tab = models::app::ActiveTab::Networks,
+                        KeyCode::Char('5') => app.active_tab = models::app::ActiveTab::System,
+                        KeyCode::Char('s') => match app.active_tab {
+                            models::app::ActiveTab::Containers => {
+                                app.containers_tab
+                                    .start_container(&app.client, tx_docker, &mut app.toast_message);
+                            }
+                            _ => {}
+                        },
+                        KeyCode::Char('x') => match app.active_tab {
+                            models::app::ActiveTab::Containers => {
+                                app.containers_tab
+                                    .stop_container(&app.client, tx_docker, &mut app.toast_message);
+                            }
+                            _ => {}
+                        },
+                        KeyCode::Char('r') => match app.active_tab {
+                            models::app::ActiveTab::Containers => {
+                                app.containers_tab
+                                    .restart_container(&app.client, tx_docker, &mut app.toast_message);
+                            }
+                            _ => {}
+                        },
+                        KeyCode::Char('d') => match app.active_tab {
+                            models::app::ActiveTab::Containers => {
+                                if let Some(id) = app.containers_tab.get_selected_container_id() {
+                                    app.delete_target = Some(models::app::DeleteTarget::Container(id));
+                                    app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
+                                }
+                            }
+                            models::app::ActiveTab::Volumes => {
+                                if let Some(name) = app.volumes_tab.get_selected_volume() {
+                                    app.delete_target = Some(models::app::DeleteTarget::Volume(name));
+                                    app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
+                                }
+                            }
+                            _ => {}
+                        },
+                        KeyCode::Tab => {
+                            app.active_tab = match app.active_tab {
+                                models::app::ActiveTab::Containers => models::app::ActiveTab::Images,
+                                models::app::ActiveTab::Images => models::app::ActiveTab::Volumes,
+                                models::app::ActiveTab::Volumes => models::app::ActiveTab::Networks,
+                                models::app::ActiveTab::Networks => models::app::ActiveTab::System,
+                                models::app::ActiveTab::System => models::app::ActiveTab::Containers,
+                            };
+                        }
+                        _ => {}
+                    },
                     _ => {}
                 },
-                AppEvent::Mouse(mouse) => {
-                    app.containers_tab.handle_mouse_click(mouse);
-                }
+                AppEvent::Mouse(mouse) => match app.active_tab {
+                    models::app::ActiveTab::Containers => app.containers_tab.handle_mouse_click(mouse),
+                    models::app::ActiveTab::Volumes => app.volumes_tab.handle_mouse_click(mouse),
+                    _ => {}
+                },
                 AppEvent::Tick => {
                     // Periodic UI animation / tick updates if needed
                 }
@@ -201,9 +269,27 @@ async fn main() -> color_eyre::Result<()> {
                                 Some(format!("❌ Error {}: {}", action, err));
                         }
                     }
-                }
+                },
+                AppEvent::VolumeActionDone { name, action, result } => {
+                    match result {
+                        Ok(_) => {
+                            app.toast_message =
+                                Some(format!("✅ Volume {} {}!", name, action));
+                        }
+                        Err(err) => {
+                            app.toast_message =
+                                Some(format!("❌ Error {}: {}", action, err));
+                        }
+                    }
+                },
                 AppEvent::VolumesUpdated(volumes) => {
                     app.volumes_tab.volumes = volumes;
+                    app.volumes_tab.is_loading = false;
+                    if app.volumes_tab.table_state.selected().is_none()
+                        && !app.volumes_tab.get_visible_rows().is_empty()
+                    {
+                        app.volumes_tab.table_state.select(Some(0));
+                    }
                 },
                 AppEvent::ClearToast => {
                     app.toast_message = None;

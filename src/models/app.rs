@@ -21,6 +21,12 @@ pub enum ViewMode {
     ConfirmDeleteModal,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum DeleteTarget {
+    Volume(String),
+    Container(String),
+}
+
 pub struct App {
     pub client: Option<Docker>,
     pub active_tab: ActiveTab,
@@ -29,7 +35,8 @@ pub struct App {
     pub should_quit: bool,
     pub toast_message: Option<String>,
     pub containers_tab: ContainersTab,
-    pub volumes_tab:VolumesTab,
+    pub volumes_tab: VolumesTab,
+    pub delete_target: Option<DeleteTarget>,
 }
 
 impl App {
@@ -43,6 +50,7 @@ impl App {
             toast_message: None,
             containers_tab: ContainersTab::new(),
             volumes_tab: VolumesTab::new(),
+            delete_target: None,
         }
     }
 }

@@ -55,3 +55,10 @@ pub async fn list_volumes(docker: &Docker) -> Result<Vec<Volume>, bollard::error
     let response = docker.list_volumes(Some(options)).await?;
     Ok(response.volumes.unwrap_or_default())
 }
+
+pub async fn remove_volume(docker: &Docker, name: &str) -> Result<(), bollard::errors::Error> {
+    let options = bollard::query_parameters::RemoveVolumeOptions {
+        force: false,
+    };
+    docker.remove_volume(name, Some(options)).await
+}

@@ -6,8 +6,9 @@ use ratatui::{
     Frame,
 };
 
-use crate::models::app::{ActiveTab, App};
+use crate::models::app::{ActiveTab, App, ViewMode};
 use crate::ui::containers::render_containers_tab;
+use crate::ui::modal::render_confirm_delete_modal;
 use crate::ui::volumes::render_volumes_tab;
 
 pub fn render(app: &mut App, frame: &mut Frame) {
@@ -25,6 +26,10 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     render_header(app, frame, chunks[0]);
     render_main_content(app, frame, chunks[1]);
     render_footer(app, frame, chunks[2]);
+
+    if app.view_mode == ViewMode::ConfirmDeleteModal {
+        render_confirm_delete_modal(app, frame, area);
+    }
 }
 
 fn render_header(app: &App, frame: &mut Frame, area: Rect) {
