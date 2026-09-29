@@ -6,7 +6,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::components::generics::GroupHeader;
+use crate::models::generics::GroupHeader;
 use crate::components::volumes::VolumeRow;
 use crate::models::app::App;
 

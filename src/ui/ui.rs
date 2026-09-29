@@ -8,6 +8,7 @@ use ratatui::{
 
 use crate::models::app::{ActiveTab, App, ViewMode};
 use crate::ui::containers::render_containers_tab;
+use crate::ui::images::render_images_tab;
 use crate::ui::modal::render_confirm_delete_modal;
 use crate::ui::volumes::render_volumes_tab;
 
@@ -63,6 +64,7 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
 fn render_main_content(app: &mut App, frame: &mut Frame, area: Rect) {
     match app.active_tab {
         ActiveTab::Containers => render_containers_tab(app, frame, area),
+        ActiveTab::Images => render_images_tab(app, frame, area),
         ActiveTab::Volumes => render_volumes_tab(app, frame, area),
         _ => {
             let placeholder = Paragraph::new("Tab coming soon...")
@@ -108,7 +110,12 @@ fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
             Span::styled("[r] ", Style::default().fg(Color::Cyan).bold()),
             Span::raw("Restart  │ "),
             Span::styled("[d] ", Style::default().fg(Color::Magenta).bold()),
-            Span::raw("Delete Container  │ "),
+            Span::raw(match app.active_tab {
+                ActiveTab::Containers => "Delete Container  │ ",
+                ActiveTab::Images => "Delete Image  │ ",
+                ActiveTab::Volumes => "Delete Volume  │ ",
+                _ => "Delete  │ ",
+            }),
             Span::styled("[q] ", Style::default().fg(Color::Gray).bold()),
             Span::raw("Quit"),
         ]),

@@ -7,7 +7,7 @@ use crate::services::docker::{
     remove_container, restart_container, start_container, stop_container,
 };
 use crate::AppEvent;
-use crate::components::generics::GroupHeader;
+use crate::models::generics::GroupHeader;
 
 
 pub enum ContainerRow<'a> {

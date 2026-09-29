@@ -3,6 +3,7 @@ mod event;
 mod models;
 mod services;
 mod ui;
+mod enums;
 
 use crossterm::event::{
     DisableMouseCapture, EnableMouseCapture, Event, EventStream, KeyCode, KeyEventKind,
@@ -21,6 +22,7 @@ pub enum AppEvent {
     DockerInitialized(bollard::Docker),
     ContainersUpdated(Vec<bollard::models::ContainerSummary>),
     VolumesUpdated(Vec<bollard::models::Volume>),
+    ImagesUpdated(Vec<bollard::models::ImageSummary>),
     ContainerDeleted {
         id: String,
         result: Result<(), String>,
@@ -32,6 +34,11 @@ pub enum AppEvent {
     },
     VolumeActionDone {
         name:String,
+        action: String,
+        result: Result<(), String>,
+    },
+    ImageActionDone {
+        id: String,
         action: String,
         result: Result<(), String>,
     },
@@ -104,6 +111,24 @@ async fn main() -> color_eyre::Result<()> {
     tokio::spawn(async move {
         if let Ok(docker) = services::docker::get_docker_client().await {
             loop {
+                if let Ok(images) = services::docker::list_images(&docker).await {
+                    if tx_docker
+                        .send(AppEvent::ImagesUpdated(images))
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+        }
+    });
+
+    let tx_docker = tx.clone();
+    tokio::spawn(async move {
+        if let Ok(docker) = services::docker::get_docker_client().await {
+            loop {
                 if let Ok(volumes) = services::docker::list_volumes(&docker).await {
                     if tx_docker.send(AppEvent::VolumesUpdated(volumes)).await.is_err() {
                         break;
@@ -139,6 +164,13 @@ async fn main() -> color_eyre::Result<()> {
                                             &mut app.toast_message,
                                         );
                                     }
+                                    models::app::DeleteTarget::Image(_) => {
+                                        app.images_tab.delete_image(
+                                            &app.client,
+                                            tx_docker,
+                                            &mut app.toast_message,
+                                        );
+                                    }
                                 }
                             }
                             app.view_mode = models::app::ViewMode::Normal;
@@ -153,16 +185,19 @@ async fn main() -> color_eyre::Result<()> {
                         KeyCode::Char('q') => app.should_quit = true,
                         KeyCode::Down | KeyCode::Char('j') => match app.active_tab {
                             models::app::ActiveTab::Containers => app.containers_tab.next_container(),
+                            models::app::ActiveTab::Images => app.images_tab.next_image(),
                             models::app::ActiveTab::Volumes => app.volumes_tab.next_volume(),
                             _ => {}
                         },
                         KeyCode::Up | KeyCode::Char('k') => match app.active_tab {
                             models::app::ActiveTab::Containers => app.containers_tab.previous_container(),
+                            models::app::ActiveTab::Images => app.images_tab.previous_image(),
                             models::app::ActiveTab::Volumes => app.volumes_tab.previous_volume(),
                             _ => {}
                         },
                         KeyCode::Char(' ') | KeyCode::Enter | KeyCode::Char('o') => match app.active_tab {
                             models::app::ActiveTab::Containers => app.containers_tab.toggle_group(),
+                            models::app::ActiveTab::Images => app.images_tab.toggle_group(),
                             models::app::ActiveTab::Volumes => app.volumes_tab.toggle_group(),
                             _ => {}
                         },
@@ -205,6 +240,12 @@ async fn main() -> color_eyre::Result<()> {
                                     app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
                                 }
                             }
+                            models::app::ActiveTab::Images => {
+                                if let Some(id) = app.images_tab.get_selected_image_id() {
+                                    app.delete_target = Some(models::app::DeleteTarget::Image(id));
+                                    app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
+                                }
+                            }
                             _ => {}
                         },
                         KeyCode::Tab => {
@@ -222,6 +263,7 @@ async fn main() -> color_eyre::Result<()> {
                 },
                 AppEvent::Mouse(mouse) => match app.active_tab {
                     models::app::ActiveTab::Containers => app.containers_tab.handle_mouse_click(mouse),
+                    models::app::ActiveTab::Images => app.images_tab.handle_mouse_click(mouse),
                     models::app::ActiveTab::Volumes => app.volumes_tab.handle_mouse_click(mouse),
                     _ => {}
                 },
@@ -282,6 +324,20 @@ async fn main() -> color_eyre::Result<()> {
                         }
                     }
                 },
+                AppEvent::ImageActionDone { id, action, result } => {
+                    let clean_id = id.strip_prefix("sha256:").unwrap_or(&id);
+                    let short_id = clean_id.chars().take(12).collect::<String>();
+                    match result {
+                        Ok(_) => {
+                            app.toast_message =
+                                Some(format!("✅ Image {} {}!", short_id, action));
+                        }
+                        Err(err) => {
+                            app.toast_message =
+                                Some(format!("❌ Error {}: {}", action, err));
+                        }
+                    }
+                },
                 AppEvent::VolumesUpdated(volumes) => {
                     app.volumes_tab.volumes = volumes;
                     app.volumes_tab.is_loading = false;
@@ -289,6 +345,15 @@ async fn main() -> color_eyre::Result<()> {
                         && !app.volumes_tab.get_visible_rows().is_empty()
                     {
                         app.volumes_tab.table_state.select(Some(0));
+                    }
+                },
+                AppEvent::ImagesUpdated(images) => {
+                    app.images_tab.images = images;
+                    app.images_tab.is_loading = false;
+                    if app.images_tab.table_state.selected().is_none()
+                        && !app.images_tab.get_visible_rows().is_empty()
+                    {
+                        app.images_tab.table_state.select(Some(0));
                     }
                 },
                 AppEvent::ClearToast => {

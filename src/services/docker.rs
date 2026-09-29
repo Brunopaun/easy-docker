@@ -1,10 +1,11 @@
 #![allow(dead_code)]
 
 use bollard::Docker;
-use bollard::models::{ContainerSummary, Volume};
+use bollard::models::{ContainerSummary, Volume, ImageSummary};
 use bollard::query_parameters::{
     ListContainersOptions, RemoveContainerOptions, RestartContainerOptions,
-    StartContainerOptions, StopContainerOptions, ListVolumesOptionsBuilder
+    StartContainerOptions, StopContainerOptions, ListVolumesOptionsBuilder,
+    ListImagesOptions, RemoveImageOptions
 };
 
 pub async fn get_docker_client() -> Result<Docker, bollard::errors::Error> {
@@ -62,3 +63,22 @@ pub async fn remove_volume(docker: &Docker, name: &str) -> Result<(), bollard::e
     };
     docker.remove_volume(name, Some(options)).await
 }
+
+pub async fn list_images(docker: &Docker) -> Result<Vec<ImageSummary>, bollard::errors::Error> {
+    let options = ListImagesOptions {
+        all: true,
+        ..Default::default()
+    };
+
+    docker.list_images(Some(options)).await
+}
+
+pub async fn remove_image(docker: &Docker, id: &str) -> Result<(), bollard::errors::Error> {
+    let options = RemoveImageOptions {
+        force: false,
+        ..Default::default()
+    };
+    let _ = docker.remove_image(id, Some(options), None).await?;
+    Ok(())
+}
+

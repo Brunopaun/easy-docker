@@ -4,7 +4,7 @@ use bollard::Docker;
 use ratatui::widgets::TableState;
 use tokio::sync::mpsc::Sender;
 
-use crate::components::generics::GroupHeader;
+use crate::models::generics::GroupHeader;
 use crate::services::docker::remove_volume;
 use crate::AppEvent;
 

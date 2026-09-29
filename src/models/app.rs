@@ -3,6 +3,7 @@
 use bollard::Docker;
 use crate::components::containers::ContainersTab;
 use crate::components::volumes::VolumesTab;
+use crate::components::images::ImagesTab;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ActiveTab {
@@ -25,6 +26,7 @@ pub enum ViewMode {
 pub enum DeleteTarget {
     Volume(String),
     Container(String),
+    Image(String),
 }
 
 pub struct App {
@@ -37,6 +39,7 @@ pub struct App {
     pub containers_tab: ContainersTab,
     pub volumes_tab: VolumesTab,
     pub delete_target: Option<DeleteTarget>,
+    pub images_tab: ImagesTab
 }
 
 impl App {
@@ -51,6 +54,7 @@ impl App {
             containers_tab: ContainersTab::new(),
             volumes_tab: VolumesTab::new(),
             delete_target: None,
+            images_tab: ImagesTab::new(),
         }
     }
 }
