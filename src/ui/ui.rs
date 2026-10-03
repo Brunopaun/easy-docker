@@ -6,9 +6,12 @@ use ratatui::{
     Frame,
 };
 
-use crate::models::app::{ActiveTab, App};
-use crate::ui::containers::render_containers_tab;
-use crate::ui::volumes::render_volumes_tab;
+use crate::models::app::{ActiveTab, App, ViewMode};
+use crate::ui::container::render_containers_tab;
+use crate::ui::image::render_images_tab;
+use crate::ui::modal::render_confirm_delete_modal;
+use crate::ui::network::render_networks_tab;
+use crate::ui::volume::render_volumes_tab;
 
 pub fn render(app: &mut App, frame: &mut Frame) {
     let area = frame.area();
@@ -25,6 +28,10 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     render_header(app, frame, chunks[0]);
     render_main_content(app, frame, chunks[1]);
     render_footer(app, frame, chunks[2]);
+
+    if app.view_mode == ViewMode::ConfirmDeleteModal {
+        render_confirm_delete_modal(app, frame, area);
+    }
 }
 
 fn render_header(app: &App, frame: &mut Frame, area: Rect) {
@@ -33,14 +40,12 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
         "[2] Images",
         "[3] Volumes",
         "[4] Networks",
-        "[5] System",
     ];
     let selected_index = match app.active_tab {
         ActiveTab::Containers => 0,
         ActiveTab::Images => 1,
         ActiveTab::Volumes => 2,
         ActiveTab::Networks => 3,
-        ActiveTab::System => 4,
     };
 
     let tabs = Tabs::new(titles)
@@ -58,12 +63,9 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
 fn render_main_content(app: &mut App, frame: &mut Frame, area: Rect) {
     match app.active_tab {
         ActiveTab::Containers => render_containers_tab(app, frame, area),
+        ActiveTab::Images => render_images_tab(app, frame, area),
         ActiveTab::Volumes => render_volumes_tab(app, frame, area),
-        _ => {
-            let placeholder = Paragraph::new("Tab coming soon...")
-                .block(Block::default().borders(Borders::ALL).title(" Tab "));
-            frame.render_widget(placeholder, area);
-        }
+        ActiveTab::Networks => render_networks_tab(app, frame, area),
     }
 }
 
@@ -92,18 +94,27 @@ fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
             Span::raw("Select  │ "),
             Span::styled("[Space/Enter] ", Style::default().fg(Color::Yellow).bold()),
             Span::raw("Toggle Group  │ "),
-            Span::styled("[1-5 / Tab] ", Style::default().fg(Color::Yellow).bold()),
+            Span::styled("[1-4 / Tab] ", Style::default().fg(Color::Yellow).bold()),
             Span::raw("Switch Tab"),
         ]),
         Line::from(vec![
-            Span::styled(" [s] ", Style::default().fg(Color::Green).bold()),
+            Span::styled(" [l] ", Style::default().fg(Color::Cyan).bold()),
+            Span::raw("Logs  │ "),
+            Span::styled("[d] ", Style::default().fg(Color::Cyan).bold()),
+            Span::raw("Details  │ "),
+            Span::styled("[s] ", Style::default().fg(Color::Green).bold()),
             Span::raw("Start  │ "),
             Span::styled("[x] ", Style::default().fg(Color::Red).bold()),
             Span::raw("Stop  │ "),
             Span::styled("[r] ", Style::default().fg(Color::Cyan).bold()),
             Span::raw("Restart  │ "),
-            Span::styled("[d] ", Style::default().fg(Color::Magenta).bold()),
-            Span::raw("Delete Container  │ "),
+            Span::styled("[Shift+d] ", Style::default().fg(Color::Magenta).bold()),
+            Span::raw(match app.active_tab {
+                ActiveTab::Containers => "Delete Container/Group  │ ",
+                ActiveTab::Images => "Delete Image/Group  │ ",
+                ActiveTab::Volumes => "Delete Volume/Group  │ ",
+                ActiveTab::Networks => "Delete Network/Group  │ ",
+            }),
             Span::styled("[q] ", Style::default().fg(Color::Gray).bold()),
             Span::raw("Quit"),
         ]),

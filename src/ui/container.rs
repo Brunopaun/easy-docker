@@ -6,14 +6,15 @@ use ratatui::{
     Frame,
 };
 
+use crate::components::container::ContainerInspectorView;
+use crate::enums::container::ContainerRow;
 use crate::models::app::App;
-use crate::components::containers::ContainerRow;
-use crate::components::generics::GroupHeader;
+use crate::models::generics::GroupHeader;
 
 pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
     let main_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+        .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
         .split(area);
 
     let visible_rows = app.containers_tab.get_visible_rows();
@@ -102,6 +103,8 @@ pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
         })
         .collect();
 
+    drop(visible_rows);
+
     let selected_index = app.containers_tab.table_state.selected();
 
     let table = Table::new(
@@ -131,11 +134,6 @@ pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
     match selected_info {
         Some(ContainerRow::ChildContainer { container, .. })
         | Some(ContainerRow::StandaloneContainer { container }) => {
-            let id_short = container
-                .id
-                .as_deref()
-                .map(|id| id.chars().take(12).collect::<String>())
-                .unwrap_or_else(|| "N/A".into());
             let raw_name = container
                 .names
                 .as_ref()
@@ -143,74 +141,132 @@ pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
                 .map(|s| s.as_str())
                 .unwrap_or("N/A");
             let name = raw_name.strip_prefix('/').unwrap_or(raw_name);
-            let image = container.image.as_deref().unwrap_or("N/A");
-            let state = container
-                .state
-                .as_ref()
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| "N/A".into());
-            let status = container.status.as_deref().unwrap_or("N/A");
-            let command = container.command.as_deref().unwrap_or("N/A");
 
-            let ports_text = container
-                .ports
-                .as_ref()
-                .map(|ports| {
-                    let formatted: Vec<String> = ports
+            if app.containers_tab.inspector_view == ContainerInspectorView::Logs {
+                let auto_scroll_status = if app.containers_tab.auto_scroll {
+                    "Auto-Scroll: [ON]"
+                } else {
+                    "Auto-Scroll: [OFF]"
+                };
+
+                let title_text = format!(
+                    " 📋 Logs: {} │ {} │ lines: {} [d: Details] ",
+                    name,
+                    auto_scroll_status,
+                    app.containers_tab.logs.len()
+                );
+
+                let content_lines: Vec<Line> = if app.containers_tab.is_loading_logs {
+                    vec![Line::from(Span::styled(
+                        "⏳ Loading logs...",
+                        Style::default().fg(Color::Yellow),
+                    ))]
+                } else if app.containers_tab.logs.is_empty() {
+                    vec![Line::from(Span::styled(
+                        "No log output available.",
+                        Style::default().fg(Color::DarkGray),
+                    ))]
+                } else {
+                    app.containers_tab
+                        .logs
                         .iter()
-                        .map(|p| {
-                            format!(
-                                "{}:{}->{}/{}",
-                                p.ip.as_deref().unwrap_or(""),
-                                p.public_port.unwrap_or(0),
-                                p.private_port,
-                                p.typ
-                                    .as_ref()
-                                    .map(|t| t.to_string())
-                                    .unwrap_or_default()
-                            )
-                        })
-                        .collect();
-                    if formatted.is_empty() {
-                        "None".into()
-                    } else {
-                        formatted.join(", ")
-                    }
-                })
-                .unwrap_or_else(|| "None".into());
+                        .map(|l| Line::from(Span::raw(l.clone())))
+                        .collect()
+                };
 
-            let text = vec![
-                Line::from(vec![
-                    Span::raw("Name: "),
-                    Span::styled(name, Style::default().fg(Color::Cyan).bold()),
-                ]),
-                Line::from(vec![
-                    Span::raw("ID: "),
-                    Span::styled(id_short, Style::default().fg(Color::Yellow)),
-                ]),
-                Line::from(vec![Span::raw("Image: "), Span::raw(image)]),
-                Line::from(vec![
-                    Span::raw("State: "),
-                    Span::styled(
-                        state.clone(),
-                        if state == "running" {
-                            Style::default().fg(Color::Green)
-                        } else {
-                            Style::default().fg(Color::Red)
-                        },
-                    ),
-                ]),
-                Line::from(vec![Span::raw("Status: "), Span::raw(status)]),
-                Line::from(vec![Span::raw("Command: "), Span::raw(command)]),
-                Line::from(vec![Span::raw("Ports: "), Span::raw(ports_text)]),
-            ];
-
-            let inspector = Paragraph::new(text).block(
-                Block::default()
+                let block = Block::default()
                     .borders(Borders::ALL)
-                    .title(format!(" Container Details ({}) ", name)),
-            );
-            frame.render_widget(inspector, main_chunks[1]);
+                    .title(Span::styled(
+                        title_text,
+                        Style::default().fg(Color::Cyan).bold(),
+                    ));
+
+                let scroll_offset = if app.containers_tab.auto_scroll && !app.containers_tab.logs.is_empty() {
+                    app.containers_tab.logs.len().saturating_sub(1) as u16
+                } else {
+                    app.containers_tab.logs_scroll_offset as u16
+                };
+
+                let logs_widget = Paragraph::new(content_lines)
+                    .block(block)
+                    .scroll((scroll_offset, 0));
+
+                frame.render_widget(logs_widget, main_chunks[1]);
+            } else {
+                let id_short = container
+                    .id
+                    .as_deref()
+                    .map(|id| id.chars().take(12).collect::<String>())
+                    .unwrap_or_else(|| "N/A".into());
+                let image = container.image.as_deref().unwrap_or("N/A");
+                let state = container
+                    .state
+                    .as_ref()
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "N/A".into());
+                let status = container.status.as_deref().unwrap_or("N/A");
+                let command = container.command.as_deref().unwrap_or("N/A");
+
+                let ports_text = container
+                    .ports
+                    .as_ref()
+                    .map(|ports| {
+                        let formatted: Vec<String> = ports
+                            .iter()
+                            .map(|p| {
+                                format!(
+                                    "{}:{}->{}/{}",
+                                    p.ip.as_deref().unwrap_or(""),
+                                    p.public_port.unwrap_or(0),
+                                    p.private_port,
+                                    p.typ
+                                        .as_ref()
+                                        .map(|t| t.to_string())
+                                        .unwrap_or_default()
+                                )
+                            })
+                            .collect();
+                        if formatted.is_empty() {
+                            "None".into()
+                        } else {
+                            formatted.join(", ")
+                        }
+                    })
+                    .unwrap_or_else(|| "None".into());
+
+                let text = vec![
+                    Line::from(vec![
+                        Span::raw("Name: "),
+                        Span::styled(name, Style::default().fg(Color::Cyan).bold()),
+                    ]),
+                    Line::from(vec![
+                        Span::raw("ID: "),
+                        Span::styled(id_short, Style::default().fg(Color::Yellow)),
+                    ]),
+                    Line::from(vec![Span::raw("Image: "), Span::raw(image)]),
+                    Line::from(vec![
+                        Span::raw("State: "),
+                        Span::styled(
+                            state.clone(),
+                            if state == "running" {
+                                Style::default().fg(Color::Green)
+                            } else {
+                                Style::default().fg(Color::Red)
+                            },
+                        ),
+                    ]),
+                    Line::from(vec![Span::raw("Status: "), Span::raw(status)]),
+                    Line::from(vec![Span::raw("Command: "), Span::raw(command)]),
+                    Line::from(vec![Span::raw("Ports: "), Span::raw(ports_text)]),
+                ];
+
+                let inspector = Paragraph::new(text).block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title(format!(" Container Details ({}) [l: Logs] ", name)),
+                );
+                frame.render_widget(inspector, main_chunks[1]);
+            }
         }
         Some(ContainerRow::GroupHeader(GroupHeader {
             name,

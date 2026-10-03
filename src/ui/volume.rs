@@ -6,8 +6,8 @@ use ratatui::{
     Frame,
 };
 
-use crate::components::generics::GroupHeader;
-use crate::components::volumes::VolumeRow;
+use crate::models::generics::GroupHeader;
+use crate::enums::volume::VolumeRow;
 use crate::models::app::App;
 
 pub fn render_volumes_tab(app: &mut App, frame: &mut Frame, area: Rect) {

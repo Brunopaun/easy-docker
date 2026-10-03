@@ -1,3 +1,4 @@
-pub mod containers;
-pub mod volumes;
-pub mod generics;
+pub mod container;
+pub mod volume;
+pub mod image;
+pub mod network;

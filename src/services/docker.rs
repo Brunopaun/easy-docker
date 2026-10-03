@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
 use bollard::Docker;
-use bollard::models::{ContainerSummary, Volume};
+use bollard::models::{ContainerSummary, Volume, Network, ImageSummary};
 use bollard::query_parameters::{
-    ListContainersOptions, RemoveContainerOptions, RestartContainerOptions,
-    StartContainerOptions, StopContainerOptions, ListVolumesOptionsBuilder
+    ListContainersOptions, ListImagesOptions, ListNetworksOptionsBuilder, ListVolumesOptionsBuilder, LogsOptions, RemoveContainerOptions, RemoveImageOptions, RestartContainerOptions, StartContainerOptions, StopContainerOptions
 };
+use futures_util::StreamExt;
 
 pub async fn get_docker_client() -> Result<Docker, bollard::errors::Error> {
     Docker::connect_with_local_defaults()
@@ -55,3 +55,70 @@ pub async fn list_volumes(docker: &Docker) -> Result<Vec<Volume>, bollard::error
     let response = docker.list_volumes(Some(options)).await?;
     Ok(response.volumes.unwrap_or_default())
 }
+
+pub async fn remove_volume(docker: &Docker, name: &str) -> Result<(), bollard::errors::Error> {
+    let options = bollard::query_parameters::RemoveVolumeOptions {
+        force: false,
+    };
+    docker.remove_volume(name, Some(options)).await
+}
+
+pub async fn list_images(docker: &Docker) -> Result<Vec<ImageSummary>, bollard::errors::Error> {
+    let options = ListImagesOptions {
+        all: true,
+        ..Default::default()
+    };
+
+    docker.list_images(Some(options)).await
+}
+
+pub async fn remove_image(docker: &Docker, id: &str) -> Result<(), bollard::errors::Error> {
+    let options = RemoveImageOptions {
+        force: false,
+        ..Default::default()
+    };
+    let _ = docker.remove_image(id, Some(options), None).await?;
+    Ok(())
+}
+
+pub async fn list_networks(docker: &Docker) -> Result<Vec<Network>, bollard::errors::Error> {
+    let options = ListNetworksOptionsBuilder::default().build();
+
+    docker.list_networks(Some(options)).await
+}
+
+pub async fn remove_network(docker: &Docker, id: &str) -> Result<(), bollard::errors::Error> {
+    docker.remove_network(id).await
+}
+
+pub async fn get_container_logs(
+    docker: &Docker,
+    id: &str,
+    tail: usize,
+) -> Result<Vec<String>, bollard::errors::Error> {
+    let options = LogsOptions {
+        stdout: true,
+        stderr: true,
+        tail: tail.to_string(),
+        timestamps: false,
+        ..Default::default()
+    };
+
+    let mut stream = docker.logs(id, Some(options));
+    let mut logs = Vec::new();
+
+    while let Some(log_result) = stream.next().await {
+        match log_result {
+            Ok(output) => {
+                let text = output.to_string();
+                for line in text.lines() {
+                    logs.push(line.to_string());
+                }
+            }
+            Err(e) => return Err(e),
+        }
+    }
+
+    Ok(logs)
+}
+

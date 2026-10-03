@@ -4,21 +4,16 @@ use ratatui::widgets::TableState;
 use tokio::sync::mpsc::Sender;
 
 use crate::services::docker::{
-    remove_container, restart_container, start_container, stop_container,
+    get_container_logs, remove_container, restart_container, start_container, stop_container,
 };
 use crate::AppEvent;
-use crate::components::generics::GroupHeader;
+use crate::models::generics::GroupHeader;
+use crate::enums::container::ContainerRow;
 
-
-pub enum ContainerRow<'a> {
-    GroupHeader(GroupHeader<'a>),
-    ChildContainer {
-        container: &'a ContainerSummary,
-        is_last_in_group: bool,
-    },
-    StandaloneContainer {
-        container: &'a ContainerSummary,
-    },
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum ContainerInspectorView {
+    Details,
+    Logs,
 }
 
 pub struct ContainersTab {
@@ -26,6 +21,13 @@ pub struct ContainersTab {
     pub table_state: TableState,
     pub collapsed_groups: HashSet<String>,
     pub is_loading: bool,
+    pub inspector_view: ContainerInspectorView,
+    pub logs: Vec<String>,
+    pub logs_scroll_offset: usize,
+    pub auto_scroll: bool,
+    pub is_loading_logs: bool,
+    pub active_log_container_id: Option<String>,
+    pub active_log_container_name: Option<String>,
 }
 
 impl ContainersTab {
@@ -35,6 +37,13 @@ impl ContainersTab {
             table_state: TableState::default(),
             collapsed_groups: HashSet::new(),
             is_loading: true,
+            inspector_view: ContainerInspectorView::Details,
+            logs: Vec::new(),
+            logs_scroll_offset: 0,
+            auto_scroll: true,
+            is_loading_logs: false,
+            active_log_container_id: None,
+            active_log_container_name: None,
         }
     }
 
@@ -159,7 +168,7 @@ impl ContainersTab {
         }
     }
 
-    fn get_selected_container_id(&self) -> Option<String> {
+    pub fn get_selected_container_id(&self) -> Option<String> {
         let selected_index = self.table_state.selected()?;
         let rows = self.get_visible_rows();
         match rows.get(selected_index)? {
@@ -267,6 +276,125 @@ impl ContainersTab {
                 tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                 let _ = tx.send(AppEvent::ClearToast).await;
             });
+        }
+    }
+
+    pub fn get_selected_group_containers(&self) -> Option<(String, Vec<String>)> {
+        let selected_index = self.table_state.selected()?;
+        let rows = self.get_visible_rows();
+        if let Some(ContainerRow::GroupHeader(GroupHeader { name, .. })) = rows.get(selected_index) {
+            let group_name = name.to_string();
+            let mut container_ids = Vec::new();
+            for c in &self.containers {
+                if let Some(proj) = c.labels.as_ref().and_then(|l| l.get("com.docker.compose.project")) {
+                    if proj == &group_name {
+                        if let Some(id) = &c.id {
+                            container_ids.push(id.clone());
+                        }
+                    }
+                }
+            }
+            if !container_ids.is_empty() {
+                return Some((group_name, container_ids));
+            }
+        }
+        None
+    }
+
+    pub fn delete_container_group(
+        &mut self,
+        client: &Option<Docker>,
+        tx: Sender<AppEvent>,
+        toast: &mut Option<String>,
+        group_name: &str,
+        ids: Vec<String>,
+    ) {
+        if let Some(client) = client.clone() {
+            let count = ids.len();
+            *toast = Some(format!("⏳ Deleting {} containers in group {}...", count, group_name));
+
+            tokio::spawn(async move {
+                for id in ids {
+                    let res = remove_container(&client, &id).await.map_err(|e| e.to_string());
+                    let _ = tx.send(AppEvent::ContainerDeleted { id, result: res }).await;
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                let _ = tx.send(AppEvent::ClearToast).await;
+            });
+        }
+    }
+
+    pub fn get_selected_container_name(&self) -> Option<String> {
+        let selected_index = self.table_state.selected()?;
+        let rows = self.get_visible_rows();
+        match rows.get(selected_index)? {
+            ContainerRow::ChildContainer { container, .. }
+            | ContainerRow::StandaloneContainer { container } => {
+                container
+                    .names
+                    .as_ref()
+                    .and_then(|n| n.first())
+                    .map(|s| s.strip_prefix('/').unwrap_or(s).to_string())
+            }
+            _ => None,
+        }
+    }
+
+    pub fn fetch_logs(&mut self, client: &Option<Docker>, tx: Sender<AppEvent>) {
+        if let (Some(client), Some(id)) = (client.clone(), self.get_selected_container_id()) {
+            let name = self.get_selected_container_name().unwrap_or_else(|| "container".to_string());
+            self.active_log_container_id = Some(id.clone());
+            self.active_log_container_name = Some(name.clone());
+            self.is_loading_logs = true;
+
+            tokio::spawn(async move {
+                let res = get_container_logs(&client, &id, 300).await;
+                let result_str = res.map_err(|e| e.to_string());
+                let _ = tx
+                    .send(AppEvent::ContainerLogsLoaded {
+                        id,
+                        name,
+                        logs: result_str,
+                    })
+                    .await;
+            });
+        }
+    }
+
+    pub fn scroll_logs_down(&mut self) {
+        if self.logs.is_empty() {
+            return;
+        }
+        self.logs_scroll_offset = self.logs_scroll_offset.saturating_add(1);
+        self.auto_scroll = false;
+    }
+
+    pub fn scroll_logs_up(&mut self) {
+        if self.logs.is_empty() {
+            return;
+        }
+        self.logs_scroll_offset = self.logs_scroll_offset.saturating_sub(1);
+        self.auto_scroll = false;
+    }
+
+    #[allow(dead_code)]
+    pub fn scroll_logs_top(&mut self) {
+        self.logs_scroll_offset = 0;
+        self.auto_scroll = false;
+    }
+
+    #[allow(dead_code)]
+    pub fn scroll_logs_bottom(&mut self) {
+        if !self.logs.is_empty() {
+            self.logs_scroll_offset = self.logs.len().saturating_sub(1);
+        }
+        self.auto_scroll = true;
+    }
+
+    pub fn toggle_auto_scroll(&mut self) {
+        self.auto_scroll = !self.auto_scroll;
+        if self.auto_scroll && !self.logs.is_empty() {
+            self.logs_scroll_offset = self.logs.len().saturating_sub(1);
         }
     }
 }
