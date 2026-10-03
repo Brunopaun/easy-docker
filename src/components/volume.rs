@@ -175,6 +175,55 @@ impl VolumesTab {
             });
         }
     }
+
+    pub fn get_selected_group_volumes(&self) -> Option<(String, Vec<String>)> {
+        let selected_index = self.table_state.selected()?;
+        let rows = self.get_visible_rows();
+        if let Some(VolumeRow::GroupHeader(GroupHeader { name, .. })) = rows.get(selected_index) {
+            let group_name = name.to_string();
+            let mut volume_names = Vec::new();
+            for v in &self.volumes {
+                if let Some(proj) = v.labels.get("com.docker.compose.project") {
+                    if proj == &group_name {
+                        volume_names.push(v.name.clone());
+                    }
+                }
+            }
+            if !volume_names.is_empty() {
+                return Some((group_name, volume_names));
+            }
+        }
+        None
+    }
+
+    pub fn delete_volume_group(
+        &mut self,
+        client: &Option<Docker>,
+        tx: Sender<AppEvent>,
+        toast: &mut Option<String>,
+        group_name: &str,
+        names: Vec<String>,
+    ) {
+        if let Some(client) = client.clone() {
+            let count = names.len();
+            *toast = Some(format!("⏳ Deleting {} volumes in group {}...", count, group_name));
+
+            tokio::spawn(async move {
+                for name in names {
+                    let res = remove_volume(&client, &name).await.map_err(|e| e.to_string());
+                    let _ = tx
+                        .send(AppEvent::VolumeActionDone {
+                            name,
+                            action: "deleted".into(),
+                            result: res,
+                        })
+                        .await;
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                let _ = tx.send(AppEvent::ClearToast).await;
+            });
+        }
+    }
 }
 
 

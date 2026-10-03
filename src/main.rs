@@ -203,6 +203,42 @@ async fn main() -> color_eyre::Result<()> {
                                             &mut app.toast_message,
                                         );
                                     }
+                                    models::app::DeleteTarget::GroupContainers(group_name, ids) => {
+                                        app.containers_tab.delete_container_group(
+                                            &app.client,
+                                            tx_docker,
+                                            &mut app.toast_message,
+                                            &group_name,
+                                            ids,
+                                        );
+                                    }
+                                    models::app::DeleteTarget::GroupVolumes(group_name, names) => {
+                                        app.volumes_tab.delete_volume_group(
+                                            &app.client,
+                                            tx_docker,
+                                            &mut app.toast_message,
+                                            &group_name,
+                                            names,
+                                        );
+                                    }
+                                    models::app::DeleteTarget::GroupImages(group_name, ids) => {
+                                        app.images_tab.delete_image_group(
+                                            &app.client,
+                                            tx_docker,
+                                            &mut app.toast_message,
+                                            &group_name,
+                                            ids,
+                                        );
+                                    }
+                                    models::app::DeleteTarget::GroupNetworks(group_name, ids) => {
+                                        app.network_tab.delete_network_group(
+                                            &app.client,
+                                            tx_docker,
+                                            &mut app.toast_message,
+                                            &group_name,
+                                            ids,
+                                        );
+                                    }
                                 }
                             }
                             app.view_mode = models::app::ViewMode::Normal;
@@ -225,7 +261,6 @@ async fn main() -> color_eyre::Result<()> {
                             models::app::ActiveTab::Images => app.images_tab.next_image(),
                             models::app::ActiveTab::Volumes => app.volumes_tab.next_volume(),
                             models::app::ActiveTab::Networks => app.network_tab.next_network(),
-                            _ => {}
                         },
                         KeyCode::Up | KeyCode::Char('k') => match app.active_tab {
                             models::app::ActiveTab::Containers => {
@@ -237,20 +272,17 @@ async fn main() -> color_eyre::Result<()> {
                             models::app::ActiveTab::Images => app.images_tab.previous_image(),
                             models::app::ActiveTab::Volumes => app.volumes_tab.previous_volume(),
                             models::app::ActiveTab::Networks => app.network_tab.previous_network(),
-                            _ => {}
                         },
                         KeyCode::Char(' ') | KeyCode::Enter | KeyCode::Char('o') => match app.active_tab {
                             models::app::ActiveTab::Containers => app.containers_tab.toggle_group(),
                             models::app::ActiveTab::Images => app.images_tab.toggle_group(),
                             models::app::ActiveTab::Volumes => app.volumes_tab.toggle_group(),
                             models::app::ActiveTab::Networks => app.network_tab.toggle_group(),
-                            _ => {}
                         },
                         KeyCode::Char('1') => app.active_tab = models::app::ActiveTab::Containers,
                         KeyCode::Char('2') => app.active_tab = models::app::ActiveTab::Images,
                         KeyCode::Char('3') => app.active_tab = models::app::ActiveTab::Volumes,
                         KeyCode::Char('4') => app.active_tab = models::app::ActiveTab::Networks,
-                        KeyCode::Char('5') => app.active_tab = models::app::ActiveTab::System,
                         KeyCode::Char('s') => match app.active_tab {
                             models::app::ActiveTab::Containers => {
                                 app.containers_tab
@@ -309,10 +341,13 @@ async fn main() -> color_eyre::Result<()> {
                             }
                             _ => {}
                         },
-                        KeyCode::Delete => match app.active_tab {
+                        KeyCode::Delete | KeyCode::Backspace | KeyCode::Char('D') => match app.active_tab {
                             models::app::ActiveTab::Containers => {
                                 if let Some(id) = app.containers_tab.get_selected_container_id() {
                                     app.delete_target = Some(models::app::DeleteTarget::Container(id));
+                                    app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
+                                } else if let Some((group_name, ids)) = app.containers_tab.get_selected_group_containers() {
+                                    app.delete_target = Some(models::app::DeleteTarget::GroupContainers(group_name, ids));
                                     app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
                                 }
                             }
@@ -320,11 +355,17 @@ async fn main() -> color_eyre::Result<()> {
                                 if let Some(name) = app.volumes_tab.get_selected_volume() {
                                     app.delete_target = Some(models::app::DeleteTarget::Volume(name));
                                     app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
+                                } else if let Some((group_name, names)) = app.volumes_tab.get_selected_group_volumes() {
+                                    app.delete_target = Some(models::app::DeleteTarget::GroupVolumes(group_name, names));
+                                    app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
                                 }
                             }
                             models::app::ActiveTab::Images => {
                                 if let Some(id) = app.images_tab.get_selected_image_id() {
                                     app.delete_target = Some(models::app::DeleteTarget::Image(id));
+                                    app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
+                                } else if let Some((group_name, ids)) = app.images_tab.get_selected_group_images() {
+                                    app.delete_target = Some(models::app::DeleteTarget::GroupImages(group_name, ids));
                                     app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
                                 }
                             }
@@ -332,17 +373,18 @@ async fn main() -> color_eyre::Result<()> {
                                 if let Some(id) = app.network_tab.get_selected_network_id() {
                                     app.delete_target = Some(models::app::DeleteTarget::Network(id));
                                     app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
+                                } else if let Some((group_name, ids)) = app.network_tab.get_selected_group_networks() {
+                                    app.delete_target = Some(models::app::DeleteTarget::GroupNetworks(group_name, ids));
+                                    app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
                                 }
                             }
-                            _ => {}
                         },
                         KeyCode::Tab => {
                             app.active_tab = match app.active_tab {
                                 models::app::ActiveTab::Containers => models::app::ActiveTab::Images,
                                 models::app::ActiveTab::Images => models::app::ActiveTab::Volumes,
                                 models::app::ActiveTab::Volumes => models::app::ActiveTab::Networks,
-                                models::app::ActiveTab::Networks => models::app::ActiveTab::System,
-                                models::app::ActiveTab::System => models::app::ActiveTab::Containers,
+                                models::app::ActiveTab::Networks => models::app::ActiveTab::Containers,
                             };
                         }
                         _ => {}
@@ -354,7 +396,6 @@ async fn main() -> color_eyre::Result<()> {
                     models::app::ActiveTab::Images => app.images_tab.handle_mouse_click(mouse),
                     models::app::ActiveTab::Volumes => app.volumes_tab.handle_mouse_click(mouse),
                     models::app::ActiveTab::Networks => app.network_tab.handle_mouse_click(mouse),
-                    _ => {}
                 },
                 AppEvent::Tick => {
                     // Periodic UI animation / tick updates if needed

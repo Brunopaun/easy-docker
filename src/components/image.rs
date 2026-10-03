@@ -174,4 +174,54 @@ impl ImagesTab {
             });
         }
     }
+
+    pub fn get_selected_group_images(&self) -> Option<(String, Vec<String>)> {
+        let selected_index = self.table_state.selected()?;
+        let rows = self.get_visible_rows();
+        if let Some(ImageRow::GroupHeader(GroupHeader { name, .. })) = rows.get(selected_index) {
+            let group_name = name.to_string();
+            let mut image_ids = Vec::new();
+            for img in &self.images {
+                if let Some(proj) = img.labels.get("com.docker.compose.project") {
+                    if proj == &group_name {
+                        image_ids.push(img.id.clone());
+                    }
+                }
+            }
+            if !image_ids.is_empty() {
+                return Some((group_name, image_ids));
+            }
+        }
+        None
+    }
+
+    pub fn delete_image_group(
+        &mut self,
+        client: &Option<Docker>,
+        tx: Sender<AppEvent>,
+        toast: &mut Option<String>,
+        group_name: &str,
+        ids: Vec<String>,
+    ) {
+        if let Some(client) = client.clone() {
+            let count = ids.len();
+            *toast = Some(format!("⏳ Deleting {} images in group {}...", count, group_name));
+
+            tokio::spawn(async move {
+                use crate::services::docker::remove_image;
+                for id in ids {
+                    let res = remove_image(&client, &id).await.map_err(|e| e.to_string());
+                    let _ = tx
+                        .send(AppEvent::ImageActionDone {
+                            id,
+                            action: "deleted".into(),
+                            result: res,
+                        })
+                        .await;
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                let _ = tx.send(AppEvent::ClearToast).await;
+            });
+        }
+    }
 }

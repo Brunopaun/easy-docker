@@ -179,4 +179,54 @@ impl NetworkTab {
             });
         }
     }
+
+    pub fn get_selected_group_networks(&self) -> Option<(String, Vec<String>)> {
+        let selected_index = self.table_state.selected()?;
+        let rows = self.get_visible_rows();
+        if let Some(NetworkRow::GroupHeader(GroupHeader { name, .. })) = rows.get(selected_index) {
+            let group_name = name.to_string();
+            let mut network_ids = Vec::new();
+            for net in &self.networks {
+                if let Some(proj) = net.labels.as_ref().and_then(|l| l.get("com.docker.compose.project")) {
+                    if proj == &group_name {
+                        if let Some(id) = net.id.clone().or_else(|| net.name.clone()) {
+                            network_ids.push(id);
+                        }
+                    }
+                }
+            }
+            if !network_ids.is_empty() {
+                return Some((group_name, network_ids));
+            }
+        }
+        None
+    }
+
+    pub fn delete_network_group(
+        &mut self,
+        client: &Option<Docker>,
+        tx: Sender<AppEvent>,
+        toast: &mut Option<String>,
+        group_name: &str,
+        ids: Vec<String>,
+    ) {
+        if let Some(client) = client.clone() {
+            let count = ids.len();
+            *toast = Some(format!("⏳ Deleting {} networks in group {}...", count, group_name));
+
+            tokio::spawn(async move {
+                for id in ids {
+                    let res = remove_network(&client, &id).await;
+                    let result_str = res.map_err(|e| e.to_string());
+                    let _ = tx
+                        .send(AppEvent::NetworkActionDone {
+                            id,
+                            action: "deleted".to_string(),
+                            result: result_str,
+                        })
+                        .await;
+                }
+            });
+        }
+    }
 }

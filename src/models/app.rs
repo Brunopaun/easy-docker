@@ -15,7 +15,6 @@ pub enum ActiveTab {
     Images,
     Volumes,
     Networks,
-    System,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -31,6 +30,10 @@ pub enum DeleteTarget {
     Container(String),
     Image(String),
     Network(String),
+    GroupContainers(String, Vec<String>),
+    GroupVolumes(String, Vec<String>),
+    GroupImages(String, Vec<String>),
+    GroupNetworks(String, Vec<String>),
 }
 
 pub struct App {

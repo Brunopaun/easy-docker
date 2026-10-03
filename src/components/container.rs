@@ -279,6 +279,51 @@ impl ContainersTab {
         }
     }
 
+    pub fn get_selected_group_containers(&self) -> Option<(String, Vec<String>)> {
+        let selected_index = self.table_state.selected()?;
+        let rows = self.get_visible_rows();
+        if let Some(ContainerRow::GroupHeader(GroupHeader { name, .. })) = rows.get(selected_index) {
+            let group_name = name.to_string();
+            let mut container_ids = Vec::new();
+            for c in &self.containers {
+                if let Some(proj) = c.labels.as_ref().and_then(|l| l.get("com.docker.compose.project")) {
+                    if proj == &group_name {
+                        if let Some(id) = &c.id {
+                            container_ids.push(id.clone());
+                        }
+                    }
+                }
+            }
+            if !container_ids.is_empty() {
+                return Some((group_name, container_ids));
+            }
+        }
+        None
+    }
+
+    pub fn delete_container_group(
+        &mut self,
+        client: &Option<Docker>,
+        tx: Sender<AppEvent>,
+        toast: &mut Option<String>,
+        group_name: &str,
+        ids: Vec<String>,
+    ) {
+        if let Some(client) = client.clone() {
+            let count = ids.len();
+            *toast = Some(format!("⏳ Deleting {} containers in group {}...", count, group_name));
+
+            tokio::spawn(async move {
+                for id in ids {
+                    let res = remove_container(&client, &id).await.map_err(|e| e.to_string());
+                    let _ = tx.send(AppEvent::ContainerDeleted { id, result: res }).await;
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                let _ = tx.send(AppEvent::ClearToast).await;
+            });
+        }
+    }
+
     pub fn get_selected_container_name(&self) -> Option<String> {
         let selected_index = self.table_state.selected()?;
         let rows = self.get_visible_rows();

@@ -33,6 +33,22 @@ pub fn render_confirm_delete_modal(app: &App, frame: &mut Frame, area: Rect) {
             let short_id = id.chars().take(12).collect::<String>();
             ("Network", short_id)
         }
+        DeleteTarget::GroupContainers(group_name, ids) => (
+            "Compose Group",
+            format!("{} ({} containers)", group_name, ids.len()),
+        ),
+        DeleteTarget::GroupVolumes(group_name, names) => (
+            "Volume Group",
+            format!("{} ({} volumes)", group_name, names.len()),
+        ),
+        DeleteTarget::GroupImages(group_name, ids) => (
+            "Image Group",
+            format!("{} ({} images)", group_name, ids.len()),
+        ),
+        DeleteTarget::GroupNetworks(group_name, ids) => (
+            "Network Group",
+            format!("{} ({} networks)", group_name, ids.len()),
+        ),
     };
 
     let warning_msg = match target {
@@ -40,6 +56,10 @@ pub fn render_confirm_delete_modal(app: &App, frame: &mut Frame, area: Rect) {
         DeleteTarget::Container(_) => "This action permanently deletes the container.",
         DeleteTarget::Image(_) => "This action permanently removes the image from Docker.",
         DeleteTarget::Network(_) => "This action permanently removes the network from Docker.",
+        DeleteTarget::GroupContainers(_, _) => "This action permanently deletes ALL containers in this compose group.",
+        DeleteTarget::GroupVolumes(_, _) => "This action permanently deletes ALL volumes in this compose group.",
+        DeleteTarget::GroupImages(_, _) => "This action permanently deletes ALL images in this compose group.",
+        DeleteTarget::GroupNetworks(_, _) => "This action permanently deletes ALL networks in this compose group.",
     };
 
     let text = vec![

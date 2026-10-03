@@ -40,14 +40,12 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
         "[2] Images",
         "[3] Volumes",
         "[4] Networks",
-        "[5] System",
     ];
     let selected_index = match app.active_tab {
         ActiveTab::Containers => 0,
         ActiveTab::Images => 1,
         ActiveTab::Volumes => 2,
         ActiveTab::Networks => 3,
-        ActiveTab::System => 4,
     };
 
     let tabs = Tabs::new(titles)
@@ -68,11 +66,6 @@ fn render_main_content(app: &mut App, frame: &mut Frame, area: Rect) {
         ActiveTab::Images => render_images_tab(app, frame, area),
         ActiveTab::Volumes => render_volumes_tab(app, frame, area),
         ActiveTab::Networks => render_networks_tab(app, frame, area),
-        _ => {
-            let placeholder = Paragraph::new("Tab coming soon...")
-                .block(Block::default().borders(Borders::ALL).title(" Tab "));
-            frame.render_widget(placeholder, area);
-        }
     }
 }
 
@@ -101,7 +94,7 @@ fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
             Span::raw("Select  │ "),
             Span::styled("[Space/Enter] ", Style::default().fg(Color::Yellow).bold()),
             Span::raw("Toggle Group  │ "),
-            Span::styled("[1-5 / Tab] ", Style::default().fg(Color::Yellow).bold()),
+            Span::styled("[1-4 / Tab] ", Style::default().fg(Color::Yellow).bold()),
             Span::raw("Switch Tab"),
         ]),
         Line::from(vec![
@@ -115,13 +108,12 @@ fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
             Span::raw("Stop  │ "),
             Span::styled("[r] ", Style::default().fg(Color::Cyan).bold()),
             Span::raw("Restart  │ "),
-            Span::styled("[Del] ", Style::default().fg(Color::Magenta).bold()),
+            Span::styled("[Shift+d] ", Style::default().fg(Color::Magenta).bold()),
             Span::raw(match app.active_tab {
-                ActiveTab::Containers => "Delete Container  │ ",
-                ActiveTab::Images => "Delete Image  │ ",
-                ActiveTab::Volumes => "Delete Volume  │ ",
-                ActiveTab::Networks => "Delete Network  │ ",
-                _ => "Delete  │ ",
+                ActiveTab::Containers => "Delete Container/Group  │ ",
+                ActiveTab::Images => "Delete Image/Group  │ ",
+                ActiveTab::Volumes => "Delete Volume/Group  │ ",
+                ActiveTab::Networks => "Delete Network/Group  │ ",
             }),
             Span::styled("[q] ", Style::default().fg(Color::Gray).bold()),
             Span::raw("Quit"),
