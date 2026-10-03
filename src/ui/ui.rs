@@ -10,6 +10,7 @@ use crate::models::app::{ActiveTab, App, ViewMode};
 use crate::ui::container::render_containers_tab;
 use crate::ui::image::render_images_tab;
 use crate::ui::modal::render_confirm_delete_modal;
+use crate::ui::network::render_networks_tab;
 use crate::ui::volume::render_volumes_tab;
 
 pub fn render(app: &mut App, frame: &mut Frame) {
@@ -66,6 +67,7 @@ fn render_main_content(app: &mut App, frame: &mut Frame, area: Rect) {
         ActiveTab::Containers => render_containers_tab(app, frame, area),
         ActiveTab::Images => render_images_tab(app, frame, area),
         ActiveTab::Volumes => render_volumes_tab(app, frame, area),
+        ActiveTab::Networks => render_networks_tab(app, frame, area),
         _ => {
             let placeholder = Paragraph::new("Tab coming soon...")
                 .block(Block::default().borders(Borders::ALL).title(" Tab "));
@@ -114,6 +116,7 @@ fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
                 ActiveTab::Containers => "Delete Container  │ ",
                 ActiveTab::Images => "Delete Image  │ ",
                 ActiveTab::Volumes => "Delete Volume  │ ",
+                ActiveTab::Networks => "Delete Network  │ ",
                 _ => "Delete  │ ",
             }),
             Span::styled("[q] ", Style::default().fg(Color::Gray).bold()),

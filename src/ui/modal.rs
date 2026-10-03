@@ -29,12 +29,17 @@ pub fn render_confirm_delete_modal(app: &App, frame: &mut Frame, area: Rect) {
             let short_id = clean_id.chars().take(12).collect::<String>();
             ("Image", short_id)
         }
+        DeleteTarget::Network(id) => {
+            let short_id = id.chars().take(12).collect::<String>();
+            ("Network", short_id)
+        }
     };
 
     let warning_msg = match target {
         DeleteTarget::Volume(_) => "This action permanently removes the volume data.",
         DeleteTarget::Container(_) => "This action permanently deletes the container.",
         DeleteTarget::Image(_) => "This action permanently removes the image from Docker.",
+        DeleteTarget::Network(_) => "This action permanently removes the network from Docker.",
     };
 
     let text = vec![

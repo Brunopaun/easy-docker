@@ -21,8 +21,6 @@ pub enum AppEvent {
     Tick,
     DockerInitialized(bollard::Docker),
     ContainersUpdated(Vec<bollard::models::ContainerSummary>),
-    VolumesUpdated(Vec<bollard::models::Volume>),
-    ImagesUpdated(Vec<bollard::models::ImageSummary>),
     ContainerDeleted {
         id: String,
         result: Result<(), String>,
@@ -32,12 +30,20 @@ pub enum AppEvent {
         action: String,
         result: Result<(), String>,
     },
+    VolumesUpdated(Vec<bollard::models::Volume>),
     VolumeActionDone {
         name:String,
         action: String,
         result: Result<(), String>,
     },
+    ImagesUpdated(Vec<bollard::models::ImageSummary>),
     ImageActionDone {
+        id: String,
+        action: String,
+        result: Result<(), String>,
+    },
+    NetworksUpdated(Vec<bollard::models::Network>),
+    NetworkActionDone {
         id: String,
         action: String,
         result: Result<(), String>,
@@ -139,6 +145,20 @@ async fn main() -> color_eyre::Result<()> {
         }
     });
 
+    let tx_docker = tx.clone();
+    tokio::spawn(async move {
+        if let Ok(docker) = services::docker::get_docker_client().await {
+            loop {
+                if let Ok(networks) = services::docker::list_networks(&docker).await {
+                    if tx_docker.send(AppEvent::NetworksUpdated(networks)).await.is_err() {
+                        break;
+                    }
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+        }
+    });
+
     while !app.should_quit {
         let tx_docker = tx.clone();
         terminal.draw(|frame| ui::render(&mut app, frame))?;
@@ -171,6 +191,13 @@ async fn main() -> color_eyre::Result<()> {
                                             &mut app.toast_message,
                                         );
                                     }
+                                    models::app::DeleteTarget::Network(_) => {
+                                        app.network_tab.delete_network(
+                                            &app.client,
+                                            tx_docker,
+                                            &mut app.toast_message,
+                                        );
+                                    }
                                 }
                             }
                             app.view_mode = models::app::ViewMode::Normal;
@@ -187,18 +214,21 @@ async fn main() -> color_eyre::Result<()> {
                             models::app::ActiveTab::Containers => app.containers_tab.next_container(),
                             models::app::ActiveTab::Images => app.images_tab.next_image(),
                             models::app::ActiveTab::Volumes => app.volumes_tab.next_volume(),
+                            models::app::ActiveTab::Networks => app.network_tab.next_network(),
                             _ => {}
                         },
                         KeyCode::Up | KeyCode::Char('k') => match app.active_tab {
                             models::app::ActiveTab::Containers => app.containers_tab.previous_container(),
                             models::app::ActiveTab::Images => app.images_tab.previous_image(),
                             models::app::ActiveTab::Volumes => app.volumes_tab.previous_volume(),
+                            models::app::ActiveTab::Networks => app.network_tab.previous_network(),
                             _ => {}
                         },
                         KeyCode::Char(' ') | KeyCode::Enter | KeyCode::Char('o') => match app.active_tab {
                             models::app::ActiveTab::Containers => app.containers_tab.toggle_group(),
                             models::app::ActiveTab::Images => app.images_tab.toggle_group(),
                             models::app::ActiveTab::Volumes => app.volumes_tab.toggle_group(),
+                            models::app::ActiveTab::Networks => app.network_tab.toggle_group(),
                             _ => {}
                         },
                         KeyCode::Char('1') => app.active_tab = models::app::ActiveTab::Containers,
@@ -246,6 +276,12 @@ async fn main() -> color_eyre::Result<()> {
                                     app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
                                 }
                             }
+                            models::app::ActiveTab::Networks => {
+                                if let Some(id) = app.network_tab.get_selected_network_id() {
+                                    app.delete_target = Some(models::app::DeleteTarget::Network(id));
+                                    app.view_mode = models::app::ViewMode::ConfirmDeleteModal;
+                                }
+                            }
                             _ => {}
                         },
                         KeyCode::Tab => {
@@ -265,6 +301,7 @@ async fn main() -> color_eyre::Result<()> {
                     models::app::ActiveTab::Containers => app.containers_tab.handle_mouse_click(mouse),
                     models::app::ActiveTab::Images => app.images_tab.handle_mouse_click(mouse),
                     models::app::ActiveTab::Volumes => app.volumes_tab.handle_mouse_click(mouse),
+                    models::app::ActiveTab::Networks => app.network_tab.handle_mouse_click(mouse),
                     _ => {}
                 },
                 AppEvent::Tick => {
@@ -338,6 +375,19 @@ async fn main() -> color_eyre::Result<()> {
                         }
                     }
                 },
+                AppEvent::NetworkActionDone { id, action, result } => {
+                    let short_id = id.chars().take(12).collect::<String>();
+                    match result {
+                        Ok(_) => {
+                            app.toast_message =
+                                Some(format!("✅ Network {} {}!", short_id, action));
+                        }
+                        Err(err) => {
+                            app.toast_message =
+                                Some(format!("❌ Error {}: {}", action, err));
+                        }
+                    }
+                },
                 AppEvent::VolumesUpdated(volumes) => {
                     app.volumes_tab.volumes = volumes;
                     app.volumes_tab.is_loading = false;
@@ -354,6 +404,15 @@ async fn main() -> color_eyre::Result<()> {
                         && !app.images_tab.get_visible_rows().is_empty()
                     {
                         app.images_tab.table_state.select(Some(0));
+                    }
+                },
+                AppEvent::NetworksUpdated(networks) => {
+                    app.network_tab.networks = networks;
+                    app.network_tab.is_loading = false;
+                    if app.network_tab.table_state.selected().is_none()
+                        && !app.network_tab.get_visible_rows().is_empty()
+                    {
+                        app.network_tab.table_state.select(Some(0));
                     }
                 },
                 AppEvent::ClearToast => {

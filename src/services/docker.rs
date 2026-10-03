@@ -1,11 +1,9 @@
 #![allow(dead_code)]
 
 use bollard::Docker;
-use bollard::models::{ContainerSummary, Volume, ImageSummary};
+use bollard::models::{ContainerSummary, Volume, Network, ImageSummary};
 use bollard::query_parameters::{
-    ListContainersOptions, RemoveContainerOptions, RestartContainerOptions,
-    StartContainerOptions, StopContainerOptions, ListVolumesOptionsBuilder,
-    ListImagesOptions, RemoveImageOptions
+    ListContainersOptions, ListImagesOptions, ListNetworksOptionsBuilder, ListVolumesOptionsBuilder, RemoveContainerOptions, RemoveImageOptions, RestartContainerOptions, StartContainerOptions, StopContainerOptions
 };
 
 pub async fn get_docker_client() -> Result<Docker, bollard::errors::Error> {
@@ -80,5 +78,15 @@ pub async fn remove_image(docker: &Docker, id: &str) -> Result<(), bollard::erro
     };
     let _ = docker.remove_image(id, Some(options), None).await?;
     Ok(())
+}
+
+pub async fn list_networks(docker: &Docker) -> Result<Vec<Network>, bollard::errors::Error> {
+    let options = ListNetworksOptionsBuilder::default().build();
+
+    docker.list_networks(Some(options)).await
+}
+
+pub async fn remove_network(docker: &Docker, id: &str) -> Result<(), bollard::errors::Error> {
+    docker.remove_network(id).await
 }
 

@@ -1,9 +1,13 @@
 #![allow(dead_code)]
 
 use bollard::Docker;
-use crate::components::container::ContainersTab;
-use crate::components::volume::VolumesTab;
-use crate::components::image::ImagesTab;
+
+use crate::components:: {
+    container::ContainersTab,
+    volume::VolumesTab,
+    image::ImagesTab,
+    network::NetworkTab,
+};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ActiveTab {
@@ -27,6 +31,7 @@ pub enum DeleteTarget {
     Volume(String),
     Container(String),
     Image(String),
+    Network(String),
 }
 
 pub struct App {
@@ -39,7 +44,8 @@ pub struct App {
     pub containers_tab: ContainersTab,
     pub volumes_tab: VolumesTab,
     pub delete_target: Option<DeleteTarget>,
-    pub images_tab: ImagesTab
+    pub images_tab: ImagesTab,
+    pub network_tab: NetworkTab
 }
 
 impl App {
@@ -55,6 +61,7 @@ impl App {
             volumes_tab: VolumesTab::new(),
             delete_target: None,
             images_tab: ImagesTab::new(),
+            network_tab: NetworkTab::new(),
         }
     }
 }
