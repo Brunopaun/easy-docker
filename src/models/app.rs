@@ -21,7 +21,6 @@ pub enum ActiveTab {
 #[derive(Debug, PartialEq, Eq)]
 pub enum ViewMode {
     Normal,
-    FullLogs,
     SearchFilter,
     ConfirmDeleteModal,
 }

@@ -3,8 +3,9 @@
 use bollard::Docker;
 use bollard::models::{ContainerSummary, Volume, Network, ImageSummary};
 use bollard::query_parameters::{
-    ListContainersOptions, ListImagesOptions, ListNetworksOptionsBuilder, ListVolumesOptionsBuilder, RemoveContainerOptions, RemoveImageOptions, RestartContainerOptions, StartContainerOptions, StopContainerOptions
+    ListContainersOptions, ListImagesOptions, ListNetworksOptionsBuilder, ListVolumesOptionsBuilder, LogsOptions, RemoveContainerOptions, RemoveImageOptions, RestartContainerOptions, StartContainerOptions, StopContainerOptions
 };
+use futures_util::StreamExt;
 
 pub async fn get_docker_client() -> Result<Docker, bollard::errors::Error> {
     Docker::connect_with_local_defaults()
@@ -88,5 +89,36 @@ pub async fn list_networks(docker: &Docker) -> Result<Vec<Network>, bollard::err
 
 pub async fn remove_network(docker: &Docker, id: &str) -> Result<(), bollard::errors::Error> {
     docker.remove_network(id).await
+}
+
+pub async fn get_container_logs(
+    docker: &Docker,
+    id: &str,
+    tail: usize,
+) -> Result<Vec<String>, bollard::errors::Error> {
+    let options = LogsOptions {
+        stdout: true,
+        stderr: true,
+        tail: tail.to_string(),
+        timestamps: false,
+        ..Default::default()
+    };
+
+    let mut stream = docker.logs(id, Some(options));
+    let mut logs = Vec::new();
+
+    while let Some(log_result) = stream.next().await {
+        match log_result {
+            Ok(output) => {
+                let text = output.to_string();
+                for line in text.lines() {
+                    logs.push(line.to_string());
+                }
+            }
+            Err(e) => return Err(e),
+        }
+    }
+
+    Ok(logs)
 }
 
