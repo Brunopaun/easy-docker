@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::models::app::App;
-use crate::components::containers::ContainerRow;
+use crate::enums::container::ContainerRow;
 use crate::models::generics::GroupHeader;
 
 pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {

@@ -7,10 +7,10 @@ use ratatui::{
 };
 
 use crate::models::app::{ActiveTab, App, ViewMode};
-use crate::ui::containers::render_containers_tab;
-use crate::ui::images::render_images_tab;
+use crate::ui::container::render_containers_tab;
+use crate::ui::image::render_images_tab;
 use crate::ui::modal::render_confirm_delete_modal;
-use crate::ui::volumes::render_volumes_tab;
+use crate::ui::volume::render_volumes_tab;
 
 pub fn render(app: &mut App, frame: &mut Frame) {
     let area = frame.area();

@@ -5,7 +5,7 @@ use bollard::models::ImageSummary;
 use bollard::Docker;
 use tokio::sync::mpsc::Sender;
 
-use crate::enums::images::ImageRow;
+use crate::enums::image::ImageRow;
 use crate::services::docker::remove_image;
 use crate::AppEvent;
 

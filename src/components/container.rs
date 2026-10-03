@@ -8,18 +8,7 @@ use crate::services::docker::{
 };
 use crate::AppEvent;
 use crate::models::generics::GroupHeader;
-
-
-pub enum ContainerRow<'a> {
-    GroupHeader(GroupHeader<'a>),
-    ChildContainer {
-        container: &'a ContainerSummary,
-        is_last_in_group: bool,
-    },
-    StandaloneContainer {
-        container: &'a ContainerSummary,
-    },
-}
+use crate::enums::container::ContainerRow;
 
 pub struct ContainersTab {
     pub containers: Vec<ContainerSummary>,

@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Paragraph, Row, Table},
 };
 
-use crate::enums::images::ImageRow;
+use crate::enums::image::ImageRow;
 use crate::models::app::App;
 use crate::models::generics::GroupHeader;
 use bollard::models::ImageSummary;

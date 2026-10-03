@@ -8,16 +8,7 @@ use crate::models::generics::GroupHeader;
 use crate::services::docker::remove_volume;
 use crate::AppEvent;
 
-pub enum VolumeRow<'a> {
-    GroupHeader(GroupHeader<'a>),
-    ChildVolume {
-        volume: &'a Volume,
-        is_last_in_group: bool,
-    },
-    StandaloneVolume {
-        volume: &'a Volume,
-    },
-}
+use crate::enums::volume::VolumeRow;
 
 pub struct VolumesTab {
     pub volumes: Vec<Volume>,

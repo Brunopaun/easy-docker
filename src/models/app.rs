@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 
 use bollard::Docker;
-use crate::components::containers::ContainersTab;
-use crate::components::volumes::VolumesTab;
-use crate::components::images::ImagesTab;
+use crate::components::container::ContainersTab;
+use crate::components::volume::VolumesTab;
+use crate::components::image::ImagesTab;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ActiveTab {

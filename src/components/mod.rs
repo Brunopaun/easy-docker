@@ -1,3 +1,3 @@
-pub mod containers;
-pub mod volumes;
-pub mod images;
+pub mod container;
+pub mod volume;
+pub mod image;
