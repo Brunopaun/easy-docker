@@ -39,7 +39,15 @@ URL="https://github.com/$REPO/releases/download/$TAG/easy-docker-$TARGET.tar.gz"
 
 echo "Downloading easy-docker $TAG for $TARGET..."
 TMP_DIR=$(mktemp -d)
-curl -sSL "$URL" | tar -xz -C "$TMP_DIR"
+
+if ! curl -sSLf "$URL" -o "$TMP_DIR/easy-docker.tar.gz"; then
+    echo "Error: Failed to download pre-compiled binary for $TARGET ($TAG)."
+    echo "The release asset may still be building or is not available for $TAG."
+    rm -rf "$TMP_DIR"
+    exit 1
+fi
+
+tar -xzf "$TMP_DIR/easy-docker.tar.gz" -C "$TMP_DIR"
 
 if [ -w "$INSTALL_DIR" ]; then
     mv "$TMP_DIR/easy-docker" "$INSTALL_DIR/easy-docker"
