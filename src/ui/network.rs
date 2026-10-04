@@ -99,7 +99,7 @@ fn build_rows(visible_rows: &[NetworkRow<'_>]) -> Vec<Row<'static>> {
                 );
                 let info_cell = Cell::from(format!("({} networks)", total_count))
                     .style(Style::default().fg(Color::DarkGray));
-                let status_cell = Cell::from("🌐 compose group").cyan();
+                let status_cell = Cell::from("⚡ compose group").cyan();
 
                 Row::new(vec![group_name_cell, info_cell, status_cell])
                     .style(Style::default().bg(Color::Reset))
@@ -125,7 +125,7 @@ fn build_rows(visible_rows: &[NetworkRow<'_>]) -> Vec<Row<'static>> {
             NetworkRow::StandaloneNetwork { network } => {
                 let name = network.name.as_deref().unwrap_or("unnamed");
 
-                let name_cell = Cell::from(format!("🌐 {}", name)).bold();
+                let name_cell = Cell::from(format!("⚡ {}", name)).bold();
                 let driver_cell = Cell::from(network.driver.as_deref().unwrap_or("-").to_string());
                 let scope_cell = Cell::from(network.scope.as_deref().unwrap_or("local").to_string());
                 let subnet_cell = Cell::from(get_subnet(network));

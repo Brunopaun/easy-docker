@@ -32,7 +32,7 @@ pub fn render_volumes_tab(app: &mut App, frame: &mut Frame, area: Rect) {
                     .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
                 let info_cell = Cell::from(format!("({} volumes)", total_count))
                     .style(Style::default().fg(Color::DarkGray));
-                let status_cell = Cell::from("📁 compose group").cyan();
+                let status_cell = Cell::from("▤ compose group").cyan();
 
                 Row::new(vec![group_name_cell, info_cell, status_cell])
                     .style(Style::default().bg(Color::Reset))
@@ -57,7 +57,7 @@ pub fn render_volumes_tab(app: &mut App, frame: &mut Frame, area: Rect) {
             VolumeRow::StandaloneVolume { volume } => {
                 let raw_name = &volume.name;
 
-                let name_cell = Cell::from(format!("📁 {}", raw_name)).bold();
+                let name_cell = Cell::from(format!("▤ {}", raw_name)).bold();
                 let driver_cell = Cell::from(volume.driver.clone());
                 let mountpoint_cell = Cell::from(volume.mountpoint.clone());
 

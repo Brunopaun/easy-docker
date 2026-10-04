@@ -84,7 +84,7 @@ pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
                     .unwrap_or("N/A");
                 let clean_name = raw_name.strip_prefix('/').unwrap_or(raw_name);
 
-                let name_cell = Cell::from(format!("📦 {}", clean_name)).bold();
+                let name_cell = Cell::from(format!("◼ {}", clean_name)).bold();
                 let image = container.image.as_deref().unwrap_or("N/A").to_string();
                 let state = container
                     .state
