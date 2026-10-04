@@ -15,7 +15,17 @@
 
 ## ⚡ Installation
 
-### Option 1: Via Cargo (Recommended)
+### Option 1: Quick Install Script (No Rust Required)
+
+Install the latest pre-compiled binary on macOS or Linux with a single command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Brunopaun/easy-docker/main/install.sh | sh
+```
+
+---
+
+### Option 2: Via Cargo
 
 If you have Rust installed, install `easy-docker` directly from [crates.io](https://crates.io):
 
@@ -31,7 +41,7 @@ easy-docker
 
 ---
 
-### Option 2: Build from Source
+### Option 3: Build from Source
 
 ```bash
 git clone https://github.com/brunopassosaun/easy-docker.git
