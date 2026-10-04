@@ -2,6 +2,14 @@
 name = "easy-docker"
 version = "0.1.0"
 edition = "2024"
+authors = ["Bruno Passos <brunopaun0@gmail.com>"]
+description = "A fast, lightweight, and modern TUI for managing Docker containers, images, volumes, and networks built in Rust."
+readme = "README.md"
+repository = "https://github.com/brunopassosaun/easy-docker"
+homepage = "https://github.com/brunopassosaun/easy-docker"
+license = "MIT"
+keywords = ["docker", "tui", "ratatui", "container", "cli"]
+categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 bollard = "*"
