@@ -1,6 +1,6 @@
 [package]
 name = "easy-docker"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Bruno Passos <brunopaun0@gmail.com>"]
 description = "A fast, lightweight, and modern TUI for managing Docker containers, images, volumes, and networks built in Rust."
