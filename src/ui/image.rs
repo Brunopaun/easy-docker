@@ -36,7 +36,7 @@ pub fn render_images_tab(app: &mut App, frame: &mut Frame, area: Rect) {
                 );
                 let info_cell = Cell::from(format!("({} images)", total_count))
                     .style(Style::default().fg(Color::DarkGray));
-                let status_cell = Cell::from("🖼️ compose group").cyan();
+                let status_cell = Cell::from("◈ compose group").cyan();
 
                 Row::new(vec![group_name_cell, info_cell, status_cell])
                     .style(Style::default().bg(Color::Reset))
@@ -61,7 +61,7 @@ pub fn render_images_tab(app: &mut App, frame: &mut Frame, area: Rect) {
             ImageRow::StandaloneImage { image } => {
                 let tag = format_tag(image);
 
-                let name_cell = Cell::from(format!("🖼️ {}", tag)).bold();
+                let name_cell = Cell::from(format!("◈ {}", tag)).bold();
                 let id_cell = Cell::from(format_id(&image.id));
                 let size_cell = Cell::from(format_size(image.size));
 
