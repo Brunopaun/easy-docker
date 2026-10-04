@@ -12,7 +12,7 @@ keywords = ["docker", "tui", "ratatui", "container", "cli"]
 categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
-bollard = "*"
+bollard = "0.21"
 color-eyre = "0.6.5"
 crossterm = { version = "0.29.0", features = ["event-stream"] }
 futures-util = "0.3"
