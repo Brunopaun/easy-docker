@@ -181,8 +181,10 @@ pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
                         Style::default().fg(Color::Cyan).bold(),
                     ));
 
+                let visible_height = main_chunks[1].height.saturating_sub(2) as usize;
+
                 let scroll_offset = if app.containers_tab.auto_scroll && !app.containers_tab.logs.is_empty() {
-                    app.containers_tab.logs.len().saturating_sub(1) as u16
+                    app.containers_tab.logs.len().saturating_sub(visible_height) as u16
                 } else {
                     app.containers_tab.logs_scroll_offset as u16
                 };

@@ -11,3 +11,9 @@ pub enum ContainerRow<'a> {
         container: &'a ContainerSummary,
     },
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum ContainerInspectorView {
+    Details,
+    Logs,
+}
