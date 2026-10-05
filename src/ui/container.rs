@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Cell, Paragraph, Row, Table},
-    Frame,
 };
 
 use crate::components::container::ContainerInspectorView;
@@ -29,8 +29,11 @@ pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
                 is_expanded,
             }) => {
                 let icon = if *is_expanded { "▼ 📁" } else { "▶ 📁" };
-                let group_name_cell = Cell::from(format!("{} {}", icon, name))
-                    .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
+                let group_name_cell = Cell::from(format!("{} {}", icon, name)).style(
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                );
                 let info_cell = Cell::from(format!("({}/{} running)", running_count, total_count))
                     .style(Style::default().fg(Color::DarkGray));
                 let status_cell = if *running_count > 0 {
@@ -116,17 +119,12 @@ pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
         ],
     )
     .header(
-        Row::new(vec!["NAME", "IMAGE / INFO", "STATUS"])
-            .style(Style::default().fg(Color::Yellow)),
+        Row::new(vec!["NAME", "IMAGE / INFO", "STATUS"]).style(Style::default().fg(Color::Yellow)),
     )
     .block(Block::default().borders(Borders::ALL).title(" Containers "))
     .row_highlight_style(Style::default().bg(Color::DarkGray));
 
-    frame.render_stateful_widget(
-        table,
-        main_chunks[0],
-        &mut app.containers_tab.table_state,
-    );
+    frame.render_stateful_widget(table, main_chunks[0], &mut app.containers_tab.table_state);
 
     let inspector_rows = app.containers_tab.get_visible_rows();
     let selected_info = selected_index.and_then(|idx| inspector_rows.get(idx));
@@ -156,38 +154,39 @@ pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
                     app.containers_tab.logs.len()
                 );
 
-                let content_lines: Vec<Line> = if app.containers_tab.is_loading_logs {
-                    vec![Line::from(Span::styled(
+                let content_lines: Vec<Line> = match (
+                    app.containers_tab.is_loading_logs,
+                    app.containers_tab.logs.is_empty(),
+                ) {
+                    (true, _) => vec![Line::from(Span::styled(
                         "⏳ Loading logs...",
                         Style::default().fg(Color::Yellow),
-                    ))]
-                } else if app.containers_tab.logs.is_empty() {
-                    vec![Line::from(Span::styled(
+                    ))],
+                    (false, true) => vec![Line::from(Span::styled(
                         "No log output available.",
                         Style::default().fg(Color::DarkGray),
-                    ))]
-                } else {
-                    app.containers_tab
+                    ))],
+                    (false, false) => app
+                        .containers_tab
                         .logs
                         .iter()
                         .map(|l| Line::from(Span::raw(l.clone())))
-                        .collect()
+                        .collect(),
                 };
 
-                let block = Block::default()
-                    .borders(Borders::ALL)
-                    .title(Span::styled(
-                        title_text,
-                        Style::default().fg(Color::Cyan).bold(),
-                    ));
+                let block = Block::default().borders(Borders::ALL).title(Span::styled(
+                    title_text,
+                    Style::default().fg(Color::Cyan).bold(),
+                ));
 
                 let visible_height = main_chunks[1].height.saturating_sub(2) as usize;
 
-                let scroll_offset = if app.containers_tab.auto_scroll && !app.containers_tab.logs.is_empty() {
-                    app.containers_tab.logs.len().saturating_sub(visible_height) as u16
-                } else {
-                    app.containers_tab.logs_scroll_offset as u16
-                };
+                let scroll_offset =
+                    if app.containers_tab.auto_scroll && !app.containers_tab.logs.is_empty() {
+                        app.containers_tab.logs.len().saturating_sub(visible_height) as u16
+                    } else {
+                        app.containers_tab.logs_scroll_offset as u16
+                    };
 
                 let logs_widget = Paragraph::new(content_lines)
                     .block(block)
@@ -221,10 +220,7 @@ pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
                                     p.ip.as_deref().unwrap_or(""),
                                     p.public_port.unwrap_or(0),
                                     p.private_port,
-                                    p.typ
-                                        .as_ref()
-                                        .map(|t| t.to_string())
-                                        .unwrap_or_default()
+                                    p.typ.as_ref().map(|t| t.to_string()).unwrap_or_default()
                                 )
                             })
                             .collect();
