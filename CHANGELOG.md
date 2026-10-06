@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/Brunopaun/easy-docker/compare/v0.1.3...v0.1.4) - 2026-10-06
+
+### Fixed
+
+- *(ui)* calculate log auto-scroll offset using visible viewport height
+
+### Other
+
+- simplify container UI rendering logic and improve log loading states
+
 ## [0.1.3](https://github.com/Brunopaun/easy-docker/compare/v0.1.2...v0.1.3) - 2026-10-04
 
 ### Fixed
