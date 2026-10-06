@@ -9,12 +9,8 @@ use crate::services::docker::{
 use crate::AppEvent;
 use crate::models::generics::GroupHeader;
 use crate::enums::container::ContainerRow;
+pub use crate::enums::container::ContainerInspectorView;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ContainerInspectorView {
-    Details,
-    Logs,
-}
 
 pub struct ContainersTab {
     pub containers: Vec<ContainerSummary>,
