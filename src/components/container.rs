@@ -1,10 +1,12 @@
 use std::collections::{BTreeMap, HashSet};
-use bollard::{models::ContainerSummary, Docker};
+use bollard::{models::ContainerSummary, query_parameters::LogsOptions, Docker};
+use futures_util::StreamExt;
 use ratatui::widgets::TableState;
 use tokio::sync::mpsc::Sender;
+use tokio::task::JoinHandle;
 
 use crate::services::docker::{
-    get_container_logs, remove_container, restart_container, start_container, stop_container,
+    remove_container, restart_container, start_container, stop_container,
 };
 use crate::AppEvent;
 use crate::models::generics::GroupHeader;
@@ -24,6 +26,7 @@ pub struct ContainersTab {
     pub is_loading_logs: bool,
     pub active_log_container_id: Option<String>,
     pub active_log_container_name: Option<String>,
+    pub log_task: Option<JoinHandle<()>>,
 }
 
 impl ContainersTab {
@@ -40,6 +43,7 @@ impl ContainersTab {
             is_loading_logs: false,
             active_log_container_id: None,
             active_log_container_name: None,
+            log_task: None,
         }
     }
 
@@ -336,24 +340,76 @@ impl ContainersTab {
         }
     }
 
+    pub fn stop_log_stream(&mut self) {
+        if let Some(handle) = self.log_task.take() {
+            handle.abort();
+        }
+    }
+
     pub fn fetch_logs(&mut self, client: &Option<Docker>, tx: Sender<AppEvent>) {
         if let (Some(client), Some(id)) = (client.clone(), self.get_selected_container_id()) {
-            let name = self.get_selected_container_name().unwrap_or_else(|| "container".to_string());
+            let is_same_container = self.active_log_container_id.as_deref() == Some(id.as_str());
+
+            if is_same_container && self.log_task.as_ref().map_or(false, |h| !h.is_finished()) {
+                return;
+            }
+
+            self.stop_log_stream();
+
+            let name = self
+                .get_selected_container_name()
+                .unwrap_or_else(|| "container".to_string());
+
+            self.logs.clear();
+            self.logs_scroll_offset = 0;
+            self.is_loading_logs = true;
             self.active_log_container_id = Some(id.clone());
             self.active_log_container_name = Some(name.clone());
-            self.is_loading_logs = true;
 
-            tokio::spawn(async move {
-                let res = get_container_logs(&client, &id, 300).await;
-                let result_str = res.map_err(|e| e.to_string());
-                let _ = tx
-                    .send(AppEvent::ContainerLogsLoaded {
-                        id,
-                        name,
-                        logs: result_str,
-                    })
-                    .await;
+            let handle = tokio::spawn(async move {
+                let options = LogsOptions {
+                    stdout: true,
+                    stderr: true,
+                    tail: "150".to_string(),
+                    follow: true,
+                    timestamps: false,
+                    ..Default::default()
+                };
+
+                let mut stream = client.logs(&id, Some(options));
+
+                while let Some(log_result) = stream.next().await {
+                    match log_result {
+                        Ok(output) => {
+                            let text = output.to_string();
+                            let lines: Vec<String> = text.lines().map(|s| s.to_string()).collect();
+                            if !lines.is_empty() {
+                                if tx
+                                    .send(AppEvent::ContainerLogChunk {
+                                        id: id.clone(),
+                                        lines,
+                                    })
+                                    .await
+                                    .is_err()
+                                {
+                                    break;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx
+                                .send(AppEvent::ContainerLogError {
+                                    id: id.clone(),
+                                    error: e.to_string(),
+                                })
+                                .await;
+                            break;
+                        }
+                    }
+                }
             });
+
+            self.log_task = Some(handle);
         }
     }
 

@@ -35,6 +35,14 @@ pub enum AppEvent {
         name: String,
         logs: Result<Vec<String>, String>,
     },
+    ContainerLogChunk {
+        id: String,
+        lines: Vec<String>,
+    },
+    ContainerLogError {
+        id: String,
+        error: String,
+    },
     VolumesUpdated(Vec<bollard::models::Volume>),
     VolumeActionDone {
         name:String,
@@ -280,9 +288,18 @@ async fn main() -> color_eyre::Result<()> {
                             models::app::ActiveTab::Networks => app.network_tab.toggle_group(),
                         },
                         KeyCode::Char('1') => app.active_tab = models::app::ActiveTab::Containers,
-                        KeyCode::Char('2') => app.active_tab = models::app::ActiveTab::Images,
-                        KeyCode::Char('3') => app.active_tab = models::app::ActiveTab::Volumes,
-                        KeyCode::Char('4') => app.active_tab = models::app::ActiveTab::Networks,
+                        KeyCode::Char('2') => {
+                            app.containers_tab.stop_log_stream();
+                            app.active_tab = models::app::ActiveTab::Images;
+                        }
+                        KeyCode::Char('3') => {
+                            app.containers_tab.stop_log_stream();
+                            app.active_tab = models::app::ActiveTab::Volumes;
+                        }
+                        KeyCode::Char('4') => {
+                            app.containers_tab.stop_log_stream();
+                            app.active_tab = models::app::ActiveTab::Networks;
+                        }
                         KeyCode::Char('s') => match app.active_tab {
                             models::app::ActiveTab::Containers => {
                                 app.containers_tab
@@ -307,6 +324,7 @@ async fn main() -> color_eyre::Result<()> {
                         KeyCode::Char('d') => match app.active_tab {
                             models::app::ActiveTab::Containers => {
                                 app.containers_tab.inspector_view = components::container::ContainerInspectorView::Details;
+                                app.containers_tab.stop_log_stream();
                             }
                             _ => {}
                         },
@@ -380,6 +398,7 @@ async fn main() -> color_eyre::Result<()> {
                             }
                         },
                         KeyCode::Tab => {
+                            app.containers_tab.stop_log_stream();
                             app.active_tab = match app.active_tab {
                                 models::app::ActiveTab::Containers => models::app::ActiveTab::Images,
                                 models::app::ActiveTab::Images => models::app::ActiveTab::Volumes,
@@ -453,6 +472,26 @@ async fn main() -> color_eyre::Result<()> {
                                 app.containers_tab.logs = vec![format!("❌ Error fetching logs: {}", err)];
                             }
                         }
+                    }
+                },
+                AppEvent::ContainerLogChunk { id, lines } => {
+                    if app.containers_tab.active_log_container_id.as_deref() == Some(id.as_str()) {
+                        app.containers_tab.is_loading_logs = false;
+                        app.containers_tab.logs.extend(lines);
+                        if app.containers_tab.logs.len() > 2000 {
+                            let drain_count = app.containers_tab.logs.len() - 2000;
+                            app.containers_tab.logs.drain(0..drain_count);
+                        }
+                        if app.containers_tab.auto_scroll && !app.containers_tab.logs.is_empty() {
+                            app.containers_tab.logs_scroll_offset =
+                                app.containers_tab.logs.len().saturating_sub(1);
+                        }
+                    }
+                },
+                AppEvent::ContainerLogError { id, error } => {
+                    if app.containers_tab.active_log_container_id.as_deref() == Some(id.as_str()) {
+                        app.containers_tab.is_loading_logs = false;
+                        app.containers_tab.logs = vec![format!("❌ Error fetching logs: {}", error)];
                     }
                 },
                 AppEvent::VolumeActionDone { name, action, result } => {
