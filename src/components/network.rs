@@ -1,13 +1,13 @@
-use std::ops::{Deref, DerefMut};
-use bollard::models::Network;
 use bollard::Docker;
+use bollard::models::Network;
+use std::ops::{Deref, DerefMut};
 use tokio::sync::mpsc::Sender;
 
+use crate::AppEvent;
 use crate::components::tab::Tab;
 use crate::enums::network::NetworkRow;
 use crate::models::generics::GroupHeader;
 use crate::services::docker::remove_network;
-use crate::AppEvent;
 
 pub struct NetworkTab {
     pub tab: Tab,
@@ -77,15 +77,9 @@ impl NetworkTab {
     }
 
     pub fn handle_mouse_click(&mut self, mouse: crossterm::event::MouseEvent) {
-        if mouse.kind == crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left) {
-            if mouse.row >= 5 {
-                let clicked_row = (mouse.row - 5) as usize;
-                let rows_count = self.get_visible_rows().len();
-                if clicked_row < rows_count {
-                    self.table_state.select(Some(clicked_row));
-                    self.toggle_group();
-                }
-            }
+        let count = self.get_visible_rows().len();
+        if self.tab.handle_mouse_click(mouse, count) {
+            self.toggle_group();
         }
     }
 
@@ -132,7 +126,11 @@ impl NetworkTab {
             let group_name = name.to_string();
             let mut network_ids = Vec::new();
             for net in &self.networks {
-                if let Some(proj) = net.labels.as_ref().and_then(|l| l.get("com.docker.compose.project")) {
+                if let Some(proj) = net
+                    .labels
+                    .as_ref()
+                    .and_then(|l| l.get("com.docker.compose.project"))
+                {
                     if proj == &group_name {
                         if let Some(id) = net.id.clone().or_else(|| net.name.clone()) {
                             network_ids.push(id);
@@ -157,7 +155,10 @@ impl NetworkTab {
     ) {
         if let Some(client) = client.clone() {
             let count = ids.len();
-            *toast = Some(format!("⏳ Deleting {} networks in group {}...", count, group_name));
+            *toast = Some(format!(
+                "⏳ Deleting {} networks in group {}...",
+                count, group_name
+            ));
 
             tokio::spawn(async move {
                 for id in ids {

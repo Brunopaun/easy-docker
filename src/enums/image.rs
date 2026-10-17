@@ -1,7 +1,5 @@
 use crate::models::generics::{AsGroupHeader, GroupHeader};
-use bollard::models:: {
-  ImageSummary
-};
+use bollard::models::ImageSummary;
 
 pub enum ImageRow<'a> {
     GroupHeader(GroupHeader<'a>),

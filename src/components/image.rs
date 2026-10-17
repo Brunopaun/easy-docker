@@ -1,13 +1,13 @@
-use std::ops::{Deref, DerefMut};
 use crate::models::generics::GroupHeader;
-use bollard::models::ImageSummary;
 use bollard::Docker;
+use bollard::models::ImageSummary;
+use std::ops::{Deref, DerefMut};
 use tokio::sync::mpsc::Sender;
 
+use crate::AppEvent;
 use crate::components::tab::Tab;
 use crate::enums::image::ImageRow;
 use crate::services::docker::remove_image;
-use crate::AppEvent;
 
 pub struct ImagesTab {
     pub tab: Tab,
@@ -29,7 +29,7 @@ impl DerefMut for ImagesTab {
 
 impl ImagesTab {
     pub fn new() -> Self {
-        Self { 
+        Self {
             tab: Tab::new(),
             images: Vec::new(),
         }
@@ -38,7 +38,11 @@ impl ImagesTab {
     pub fn get_visible_rows(&self) -> Vec<ImageRow<'_>> {
         self.tab.build_grouped_rows(
             &self.images,
-            |c| c.labels.get("com.docker.compose.project").map(|s| s.as_str()),
+            |c| {
+                c.labels
+                    .get("com.docker.compose.project")
+                    .map(|s| s.as_str())
+            },
             |_| true,
             ImageRow::GroupHeader,
             |c, is_last| ImageRow::ChildImage {
@@ -73,15 +77,9 @@ impl ImagesTab {
     }
 
     pub fn handle_mouse_click(&mut self, mouse: crossterm::event::MouseEvent) {
-        if mouse.kind == crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left) {
-            if mouse.row >= 5 {
-                let clicked_row = (mouse.row - 5) as usize;
-                let rows_count = self.get_visible_rows().len();
-                if clicked_row < rows_count {
-                    self.table_state.select(Some(clicked_row));
-                    self.toggle_group();
-                }
-            }
+        let count = self.get_visible_rows().len();
+        if self.tab.handle_mouse_click(mouse, count) {
+            self.toggle_group();
         }
     }
 
@@ -89,8 +87,9 @@ impl ImagesTab {
         let selected_index = self.table_state.selected()?;
         let rows = self.get_visible_rows();
         match rows.get(selected_index)? {
-            ImageRow::ChildImage { image, .. }
-            | ImageRow::StandaloneImage { image } => Some(image.id.clone()),
+            ImageRow::ChildImage { image, .. } | ImageRow::StandaloneImage { image } => {
+                Some(image.id.clone())
+            }
             _ => None,
         }
     }
@@ -152,7 +151,10 @@ impl ImagesTab {
     ) {
         if let Some(client) = client.clone() {
             let count = ids.len();
-            *toast = Some(format!("⏳ Deleting {} images in group {}...", count, group_name));
+            *toast = Some(format!(
+                "⏳ Deleting {} images in group {}...",
+                count, group_name
+            ));
 
             tokio::spawn(async move {
                 use crate::services::docker::remove_image;

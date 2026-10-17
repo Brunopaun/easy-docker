@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Tabs},
-    Frame,
 };
 
 use crate::models::app::{ActiveTab, App, ViewMode};
@@ -49,7 +49,11 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
     };
 
     let tabs = Tabs::new(titles)
-        .block(Block::default().borders(Borders::ALL).title(" 🐳 Easy Docker "))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" 🐳 Easy Docker "),
+        )
         .highlight_style(
             Style::default()
                 .fg(Color::Cyan)

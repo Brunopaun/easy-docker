@@ -25,5 +25,4 @@ impl<'a> AsGroupHeader<'a> for ContainerRow<'a> {
             _ => None,
         }
     }
-
 }

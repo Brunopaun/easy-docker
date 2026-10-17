@@ -2,11 +2,8 @@
 
 use bollard::Docker;
 
-use crate::components:: {
-    container::ContainersTab,
-    volume::VolumesTab,
-    image::ImagesTab,
-    network::NetworkTab,
+use crate::components::{
+    container::ContainersTab, image::ImagesTab, network::NetworkTab, volume::VolumesTab,
 };
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -22,6 +19,7 @@ pub enum ViewMode {
     Normal,
     SearchFilter,
     ConfirmDeleteModal,
+    LogViewer,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -47,7 +45,7 @@ pub struct App {
     pub volumes_tab: VolumesTab,
     pub delete_target: Option<DeleteTarget>,
     pub images_tab: ImagesTab,
-    pub network_tab: NetworkTab
+    pub network_tab: NetworkTab,
 }
 
 impl App {

@@ -1,18 +1,17 @@
-use std::ops::{Deref, DerefMut};
-use bollard::{models::ContainerSummary, query_parameters::LogsOptions, Docker};
+use bollard::{Docker, models::ContainerSummary, query_parameters::LogsOptions};
 use futures_util::StreamExt;
+use std::ops::{Deref, DerefMut};
 use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
 
+use crate::AppEvent;
 use crate::components::tab::Tab;
+pub use crate::enums::container::ContainerInspectorView;
+use crate::enums::container::ContainerRow;
+use crate::models::generics::GroupHeader;
 use crate::services::docker::{
     remove_container, restart_container, start_container, stop_container,
 };
-use crate::AppEvent;
-use crate::models::generics::GroupHeader;
-use crate::enums::container::ContainerRow;
-pub use crate::enums::container::ContainerInspectorView;
-
 
 pub struct ContainersTab {
     pub tab: Tab,
@@ -25,6 +24,7 @@ pub struct ContainersTab {
     pub active_log_container_id: Option<String>,
     pub active_log_container_name: Option<String>,
     pub log_task: Option<JoinHandle<()>>,
+    pub visible_height: usize,
 }
 
 impl Deref for ContainersTab {
@@ -53,6 +53,7 @@ impl ContainersTab {
             active_log_container_id: None,
             active_log_container_name: None,
             log_task: None,
+            visible_height: 20,
         }
     }
 
@@ -98,15 +99,9 @@ impl ContainersTab {
     }
 
     pub fn handle_mouse_click(&mut self, mouse: crossterm::event::MouseEvent) {
-        if mouse.kind == crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left) {
-            if mouse.row >= 5 {
-                let clicked_row = (mouse.row - 5) as usize;
-                let rows_count = self.get_visible_rows().len();
-                if clicked_row < rows_count {
-                    self.table_state.select(Some(clicked_row));
-                    self.toggle_group();
-                }
-            }
+        let count = self.get_visible_rows().len();
+        if self.tab.handle_mouse_click(mouse, count) {
+            self.toggle_group();
         }
     }
 
@@ -131,7 +126,9 @@ impl ContainersTab {
             *toast = Some(format!("⏳ Starting {}...", short_id));
 
             tokio::spawn(async move {
-                let res = start_container(&client, &id).await.map_err(|e| e.to_string());
+                let res = start_container(&client, &id)
+                    .await
+                    .map_err(|e| e.to_string());
                 let _ = tx
                     .send(AppEvent::ContainerActionDone {
                         id,
@@ -157,7 +154,9 @@ impl ContainersTab {
             *toast = Some(format!("⏳ Stopping {}...", short_id));
 
             tokio::spawn(async move {
-                let res = stop_container(&client, &id).await.map_err(|e| e.to_string());
+                let res = stop_container(&client, &id)
+                    .await
+                    .map_err(|e| e.to_string());
                 let _ = tx
                     .send(AppEvent::ContainerActionDone {
                         id,
@@ -183,7 +182,9 @@ impl ContainersTab {
             *toast = Some(format!("⏳ Restarting {}...", short_id));
 
             tokio::spawn(async move {
-                let res = restart_container(&client, &id).await.map_err(|e| e.to_string());
+                let res = restart_container(&client, &id)
+                    .await
+                    .map_err(|e| e.to_string());
                 let _ = tx
                     .send(AppEvent::ContainerActionDone {
                         id,
@@ -209,7 +210,9 @@ impl ContainersTab {
             *toast = Some(format!("⏳ Deleting {}...", short_id));
 
             tokio::spawn(async move {
-                let res = remove_container(&client, &id).await.map_err(|e| e.to_string());
+                let res = remove_container(&client, &id)
+                    .await
+                    .map_err(|e| e.to_string());
 
                 let _ = tx
                     .send(AppEvent::ContainerDeleted { id, result: res })
@@ -224,11 +227,16 @@ impl ContainersTab {
     pub fn get_selected_group_containers(&self) -> Option<(String, Vec<String>)> {
         let selected_index = self.table_state.selected()?;
         let rows = self.get_visible_rows();
-        if let Some(ContainerRow::GroupHeader(GroupHeader { name, .. })) = rows.get(selected_index) {
+        if let Some(ContainerRow::GroupHeader(GroupHeader { name, .. })) = rows.get(selected_index)
+        {
             let group_name = name.to_string();
             let mut container_ids = Vec::new();
             for c in &self.containers {
-                if let Some(proj) = c.labels.as_ref().and_then(|l| l.get("com.docker.compose.project")) {
+                if let Some(proj) = c
+                    .labels
+                    .as_ref()
+                    .and_then(|l| l.get("com.docker.compose.project"))
+                {
                     if proj == &group_name {
                         if let Some(id) = &c.id {
                             container_ids.push(id.clone());
@@ -253,12 +261,19 @@ impl ContainersTab {
     ) {
         if let Some(client) = client.clone() {
             let count = ids.len();
-            *toast = Some(format!("⏳ Deleting {} containers in group {}...", count, group_name));
+            *toast = Some(format!(
+                "⏳ Deleting {} containers in group {}...",
+                count, group_name
+            ));
 
             tokio::spawn(async move {
                 for id in ids {
-                    let res = remove_container(&client, &id).await.map_err(|e| e.to_string());
-                    let _ = tx.send(AppEvent::ContainerDeleted { id, result: res }).await;
+                    let res = remove_container(&client, &id)
+                        .await
+                        .map_err(|e| e.to_string());
+                    let _ = tx
+                        .send(AppEvent::ContainerDeleted { id, result: res })
+                        .await;
                 }
                 tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                 let _ = tx.send(AppEvent::ClearToast).await;
@@ -271,13 +286,11 @@ impl ContainersTab {
         let rows = self.get_visible_rows();
         match rows.get(selected_index)? {
             ContainerRow::ChildContainer { container, .. }
-            | ContainerRow::StandaloneContainer { container } => {
-                container
-                    .names
-                    .as_ref()
-                    .and_then(|n| n.first())
-                    .map(|s| s.strip_prefix('/').unwrap_or(s).to_string())
-            }
+            | ContainerRow::StandaloneContainer { container } => container
+                .names
+                .as_ref()
+                .and_then(|n| n.first())
+                .map(|s| s.strip_prefix('/').unwrap_or(s).to_string()),
             _ => None,
         }
     }
@@ -355,17 +368,27 @@ impl ContainersTab {
         }
     }
 
+    pub fn max_scroll_offset(&self) -> usize {
+        self.logs.len().saturating_sub(self.visible_height)
+    }
+
     pub fn scroll_logs_down(&mut self) {
         if self.logs.is_empty() {
             return;
         }
-        self.logs_scroll_offset = self.logs_scroll_offset.saturating_add(1);
+        let max_offset = self.max_scroll_offset();
+        if self.logs_scroll_offset < max_offset {
+            self.logs_scroll_offset = self.logs_scroll_offset.saturating_add(1);
+        }
         self.auto_scroll = false;
     }
 
     pub fn scroll_logs_up(&mut self) {
         if self.logs.is_empty() {
             return;
+        }
+        if self.auto_scroll {
+            self.logs_scroll_offset = self.max_scroll_offset();
         }
         self.logs_scroll_offset = self.logs_scroll_offset.saturating_sub(1);
         self.auto_scroll = false;
@@ -379,16 +402,14 @@ impl ContainersTab {
 
     #[allow(dead_code)]
     pub fn scroll_logs_bottom(&mut self) {
-        if !self.logs.is_empty() {
-            self.logs_scroll_offset = self.logs.len().saturating_sub(1);
-        }
+        self.logs_scroll_offset = self.max_scroll_offset();
         self.auto_scroll = true;
     }
 
     pub fn toggle_auto_scroll(&mut self) {
         self.auto_scroll = !self.auto_scroll;
         if self.auto_scroll && !self.logs.is_empty() {
-            self.logs_scroll_offset = self.logs.len().saturating_sub(1);
+            self.logs_scroll_offset = self.max_scroll_offset();
         }
     }
 }
