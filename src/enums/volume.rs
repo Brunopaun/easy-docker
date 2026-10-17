@@ -1,5 +1,5 @@
 use bollard::models::Volume;
-use crate::models::generics::GroupHeader;
+use crate::models::generics::{AsGroupHeader, GroupHeader};
 
 pub enum VolumeRow<'a> {
     GroupHeader(GroupHeader<'a>),
@@ -10,4 +10,13 @@ pub enum VolumeRow<'a> {
     StandaloneVolume {
         volume: &'a Volume,
     },
+}
+
+impl<'a> AsGroupHeader<'a> for VolumeRow<'a> {
+    fn as_group_header(&self) -> Option<&GroupHeader<'a>> {
+        match self {
+            VolumeRow::GroupHeader(h) => Some(h),
+            _ => None,
+        }
+    }
 }

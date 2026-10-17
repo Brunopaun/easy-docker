@@ -1,10 +1,12 @@
-use std::collections::{BTreeMap, HashSet};
-use bollard::{models::ContainerSummary, Docker};
-use ratatui::widgets::TableState;
+use std::ops::{Deref, DerefMut};
+use bollard::{models::ContainerSummary, query_parameters::LogsOptions, Docker};
+use futures_util::StreamExt;
 use tokio::sync::mpsc::Sender;
+use tokio::task::JoinHandle;
 
+use crate::components::tab::Tab;
 use crate::services::docker::{
-    get_container_logs, remove_container, restart_container, start_container, stop_container,
+    remove_container, restart_container, start_container, stop_container,
 };
 use crate::AppEvent;
 use crate::models::generics::GroupHeader;
@@ -13,10 +15,8 @@ pub use crate::enums::container::ContainerInspectorView;
 
 
 pub struct ContainersTab {
+    pub tab: Tab,
     pub containers: Vec<ContainerSummary>,
-    pub table_state: TableState,
-    pub collapsed_groups: HashSet<String>,
-    pub is_loading: bool,
     pub inspector_view: ContainerInspectorView,
     pub logs: Vec<String>,
     pub logs_scroll_offset: usize,
@@ -24,15 +24,27 @@ pub struct ContainersTab {
     pub is_loading_logs: bool,
     pub active_log_container_id: Option<String>,
     pub active_log_container_name: Option<String>,
+    pub log_task: Option<JoinHandle<()>>,
+}
+
+impl Deref for ContainersTab {
+    type Target = Tab;
+    fn deref(&self) -> &Self::Target {
+        &self.tab
+    }
+}
+
+impl DerefMut for ContainersTab {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.tab
+    }
 }
 
 impl ContainersTab {
     pub fn new() -> Self {
         Self {
+            tab: Tab::new(),
             containers: Vec::new(),
-            table_state: TableState::default(),
-            collapsed_groups: HashSet::new(),
-            is_loading: true,
             inspector_view: ContainerInspectorView::Details,
             logs: Vec::new(),
             logs_scroll_offset: 0,
@@ -40,115 +52,49 @@ impl ContainersTab {
             is_loading_logs: false,
             active_log_container_id: None,
             active_log_container_name: None,
+            log_task: None,
         }
     }
 
     pub fn get_visible_rows(&self) -> Vec<ContainerRow<'_>> {
-        let mut grouped: BTreeMap<&str, Vec<&ContainerSummary>> = BTreeMap::new();
-        let mut standalone: Vec<&ContainerSummary> = Vec::new();
-
-        for c in &self.containers {
-            if let Some(project) = c
-                .labels
-                .as_ref()
-                .and_then(|l| l.get("com.docker.compose.project"))
-            {
-                grouped.entry(project.as_str()).or_default().push(c);
-            } else {
-                standalone.push(c);
-            }
-        }
-
-        let mut rows = Vec::new();
-
-        for (project_name, group_containers) in &grouped {
-            let total_count = group_containers.len();
-            let running_count = group_containers
-                .iter()
-                .filter(|c| c.state.as_ref().map(|s| s.as_ref()) == Some("running"))
-                .count();
-            let is_expanded = !self.collapsed_groups.contains(*project_name);
-
-            rows.push(ContainerRow::GroupHeader(GroupHeader {
-                name: project_name,
-                total_count,
-                running_count,
-                is_expanded,
-            }));
-
-            if is_expanded {
-                let len = group_containers.len();
-                for (idx, c) in group_containers.iter().enumerate() {
-                    rows.push(ContainerRow::ChildContainer {
-                        container: c,
-                        is_last_in_group: idx == len - 1,
-                    });
-                }
-            }
-        }
-
-        for c in standalone {
-            rows.push(ContainerRow::StandaloneContainer { container: c });
-        }
-
-        rows
+        self.tab.build_grouped_rows(
+            &self.containers,
+            |c| {
+                c.labels
+                    .as_ref()
+                    .and_then(|l| l.get("com.docker.compose.project").map(|s| s.as_str()))
+            },
+            |c| c.state.as_ref().map(|s| s.as_ref()) == Some("running"),
+            ContainerRow::GroupHeader,
+            |c, is_last| ContainerRow::ChildContainer {
+                container: c,
+                is_last_in_group: is_last,
+            },
+            |c| ContainerRow::StandaloneContainer { container: c },
+        )
     }
 
     pub fn toggle_group(&mut self) {
-        if let Some(selected) = self.table_state.selected() {
+        let target = {
             let rows = self.get_visible_rows();
-            if let Some(ContainerRow::GroupHeader(GroupHeader {
-                name, is_expanded, ..
-            })) = rows.get(selected)
-            {
-                let group_name = name.to_string();
-                let is_exp = *is_expanded;
-                drop(rows);
+            self.tab.get_selected_group_header(&rows)
+        };
 
-                if is_exp {
-                    self.collapsed_groups.insert(group_name);
-                } else {
-                    self.collapsed_groups.remove(&group_name);
-                }
-
-                let new_count = self.get_visible_rows().len();
-                if new_count == 0 {
-                    self.table_state.select(None);
-                } else if selected >= new_count {
-                    self.table_state.select(Some(new_count - 1));
-                }
-            }
+        if let Some((group_name, is_expanded)) = target {
+            self.tab.toggle_group_name(&group_name, is_expanded);
+            let new_count = self.get_visible_rows().len();
+            self.tab.adjust_selection(new_count);
         }
     }
 
     pub fn next_container(&mut self) {
         let count = self.get_visible_rows().len();
-        if count == 0 {
-            return;
-        }
-        let i = match self.table_state.selected() {
-            Some(i) => (i + 1) % count,
-            None => 0,
-        };
-        self.table_state.select(Some(i));
+        self.tab.select_next(count);
     }
 
     pub fn previous_container(&mut self) {
         let count = self.get_visible_rows().len();
-        if count == 0 {
-            return;
-        }
-        let i = match self.table_state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    count - 1
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
-        };
-        self.table_state.select(Some(i));
+        self.tab.select_previous(count);
     }
 
     pub fn handle_mouse_click(&mut self, mouse: crossterm::event::MouseEvent) {
@@ -336,24 +282,76 @@ impl ContainersTab {
         }
     }
 
+    pub fn stop_log_stream(&mut self) {
+        if let Some(handle) = self.log_task.take() {
+            handle.abort();
+        }
+    }
+
     pub fn fetch_logs(&mut self, client: &Option<Docker>, tx: Sender<AppEvent>) {
         if let (Some(client), Some(id)) = (client.clone(), self.get_selected_container_id()) {
-            let name = self.get_selected_container_name().unwrap_or_else(|| "container".to_string());
+            let is_same_container = self.active_log_container_id.as_deref() == Some(id.as_str());
+
+            if is_same_container && self.log_task.as_ref().map_or(false, |h| !h.is_finished()) {
+                return;
+            }
+
+            self.stop_log_stream();
+
+            let name = self
+                .get_selected_container_name()
+                .unwrap_or_else(|| "container".to_string());
+
+            self.logs.clear();
+            self.logs_scroll_offset = 0;
+            self.is_loading_logs = true;
             self.active_log_container_id = Some(id.clone());
             self.active_log_container_name = Some(name.clone());
-            self.is_loading_logs = true;
 
-            tokio::spawn(async move {
-                let res = get_container_logs(&client, &id, 300).await;
-                let result_str = res.map_err(|e| e.to_string());
-                let _ = tx
-                    .send(AppEvent::ContainerLogsLoaded {
-                        id,
-                        name,
-                        logs: result_str,
-                    })
-                    .await;
+            let handle = tokio::spawn(async move {
+                let options = LogsOptions {
+                    stdout: true,
+                    stderr: true,
+                    tail: "150".to_string(),
+                    follow: true,
+                    timestamps: false,
+                    ..Default::default()
+                };
+
+                let mut stream = client.logs(&id, Some(options));
+
+                while let Some(log_result) = stream.next().await {
+                    match log_result {
+                        Ok(output) => {
+                            let text = output.to_string();
+                            let lines: Vec<String> = text.lines().map(|s| s.to_string()).collect();
+                            if !lines.is_empty() {
+                                if tx
+                                    .send(AppEvent::ContainerLogChunk {
+                                        id: id.clone(),
+                                        lines,
+                                    })
+                                    .await
+                                    .is_err()
+                                {
+                                    break;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx
+                                .send(AppEvent::ContainerLogError {
+                                    id: id.clone(),
+                                    error: e.to_string(),
+                                })
+                                .await;
+                            break;
+                        }
+                    }
+                }
             });
+
+            self.log_task = Some(handle);
         }
     }
 

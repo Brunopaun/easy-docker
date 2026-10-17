@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table, Wrap},
 };
 
 use crate::components::container::ContainerInspectorView;
@@ -190,6 +190,7 @@ pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
 
                 let logs_widget = Paragraph::new(content_lines)
                     .block(block)
+                    .wrap(Wrap { trim: false })
                     .scroll((scroll_offset, 0));
 
                 frame.render_widget(logs_widget, main_chunks[1]);
