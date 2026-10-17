@@ -1,134 +1,79 @@
+use std::ops::{Deref, DerefMut};
 use bollard::models::Network;
 use bollard::Docker;
-use ratatui::widgets::TableState;
-use std::collections::{BTreeMap, HashSet};
 use tokio::sync::mpsc::Sender;
 
+use crate::components::tab::Tab;
 use crate::enums::network::NetworkRow;
 use crate::models::generics::GroupHeader;
 use crate::services::docker::remove_network;
 use crate::AppEvent;
 
 pub struct NetworkTab {
+    pub tab: Tab,
     pub networks: Vec<Network>,
-    pub table_state: TableState,
-    pub collapsed_groups: HashSet<String>,
-    pub is_loading: bool,
+}
+
+impl Deref for NetworkTab {
+    type Target = Tab;
+    fn deref(&self) -> &Self::Target {
+        &self.tab
+    }
+}
+
+impl DerefMut for NetworkTab {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.tab
+    }
 }
 
 impl NetworkTab {
     pub fn new() -> Self {
         Self {
+            tab: Tab::new(),
             networks: Vec::new(),
-            table_state: TableState::default(),
-            collapsed_groups: HashSet::new(),
-            is_loading: true,
         }
     }
 
     pub fn get_visible_rows(&self) -> Vec<NetworkRow<'_>> {
-        let mut grouped: BTreeMap<&str, Vec<&Network>> = BTreeMap::new();
-        let mut standalone: Vec<&Network> = Vec::new();
-
-        for c in &self.networks {
-            if let Some(project) = c
-                .labels
-                .as_ref()
-                .and_then(|l| l.get("com.docker.compose.project"))
-            {
-                grouped.entry(project.as_str()).or_default().push(c);
-            } else {
-                standalone.push(c);
-            }
-        }
-
-        let mut rows = Vec::new();
-
-        for (project_name, group_networks) in &grouped {
-            let total_count = group_networks.len();
-            let running_count = total_count;
-            let is_expanded = !self.collapsed_groups.contains(*project_name);
-
-            rows.push(NetworkRow::GroupHeader(GroupHeader {
-                name: project_name,
-                total_count,
-                running_count,
-                is_expanded,
-            }));
-
-            if is_expanded {
-                let len = group_networks.len();
-                for (idx, c) in group_networks.iter().enumerate() {
-                    rows.push(NetworkRow::ChildNetwork {
-                        network: c,
-                        is_last_in_group: idx == len - 1,
-                    });
-                }
-            }
-        }
-
-        for c in standalone {
-            rows.push(NetworkRow::StandaloneNetwork { network: c });
-        }
-
-        rows
+        self.tab.build_grouped_rows(
+            &self.networks,
+            |c| {
+                c.labels
+                    .as_ref()
+                    .and_then(|l| l.get("com.docker.compose.project").map(|s| s.as_str()))
+            },
+            |_| true,
+            NetworkRow::GroupHeader,
+            |c, is_last| NetworkRow::ChildNetwork {
+                network: c,
+                is_last_in_group: is_last,
+            },
+            |c| NetworkRow::StandaloneNetwork { network: c },
+        )
     }
 
     pub fn toggle_group(&mut self) {
-        if let Some(selected) = self.table_state.selected() {
+        let target = {
             let rows = self.get_visible_rows();
-            if let Some(NetworkRow::GroupHeader(GroupHeader {
-                name, is_expanded, ..
-            })) = rows.get(selected)
-            {
-                let group_name = name.to_string();
-                let is_exp = *is_expanded;
-                drop(rows);
+            self.tab.get_selected_group_header(&rows)
+        };
 
-                if is_exp {
-                    self.collapsed_groups.insert(group_name);
-                } else {
-                    self.collapsed_groups.remove(&group_name);
-                }
-
-                let new_count = self.get_visible_rows().len();
-                if new_count == 0 {
-                    self.table_state.select(None);
-                } else if selected >= new_count {
-                    self.table_state.select(Some(new_count - 1));
-                }
-            }
+        if let Some((group_name, is_expanded)) = target {
+            self.tab.toggle_group_name(&group_name, is_expanded);
+            let new_count = self.get_visible_rows().len();
+            self.tab.adjust_selection(new_count);
         }
     }
 
     pub fn next_network(&mut self) {
         let count = self.get_visible_rows().len();
-        if count == 0 {
-            return;
-        }
-        let i = match self.table_state.selected() {
-            Some(i) => (i + 1) % count,
-            None => 0,
-        };
-        self.table_state.select(Some(i));
+        self.tab.select_next(count);
     }
 
     pub fn previous_network(&mut self) {
         let count = self.get_visible_rows().len();
-        if count == 0 {
-            return;
-        }
-        let i = match self.table_state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    count - 1
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
-        };
-        self.table_state.select(Some(i));
+        self.tab.select_previous(count);
     }
 
     pub fn handle_mouse_click(&mut self, mouse: crossterm::event::MouseEvent) {
