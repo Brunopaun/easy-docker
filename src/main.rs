@@ -291,15 +291,15 @@ async fn main() -> color_eyre::Result<()> {
                         KeyCode::Char('2') => {
                             app.containers_tab.stop_log_stream();
                             app.active_tab = models::app::ActiveTab::Images;
-                        }
+                        },
                         KeyCode::Char('3') => {
                             app.containers_tab.stop_log_stream();
                             app.active_tab = models::app::ActiveTab::Volumes;
-                        }
+                        },
                         KeyCode::Char('4') => {
                             app.containers_tab.stop_log_stream();
                             app.active_tab = models::app::ActiveTab::Networks;
-                        }
+                        },
                         KeyCode::Char('s') => match app.active_tab {
                             models::app::ActiveTab::Containers => {
                                 app.containers_tab
