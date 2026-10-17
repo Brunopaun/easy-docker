@@ -1,5 +1,5 @@
 use crate::models::generics::{AsGroupHeader, GroupHeader};
-use ratatui::widgets::TableState;
+use ratatui::{layout::Rect, widgets::TableState};
 use std::collections::{BTreeMap, HashSet};
 
 #[derive(Default)]
@@ -7,6 +7,7 @@ pub struct Tab {
     pub table_state: TableState,
     pub collapsed_groups: HashSet<String>,
     pub is_loading: bool,
+    pub table_area: Rect,
 }
 
 impl Tab {
@@ -15,6 +16,7 @@ impl Tab {
             table_state: TableState::default(),
             collapsed_groups: HashSet::new(),
             is_loading: true,
+            table_area: Rect::default(),
         }
     }
 
@@ -127,5 +129,28 @@ impl Tab {
         }
 
         rows
+    }
+
+    pub fn handle_mouse_click(
+        &mut self,
+        mouse: crossterm::event::MouseEvent,
+        count: usize,
+    ) -> bool {
+        if mouse.kind == crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left)
+        {
+            let is_within_x = mouse.column >= self.table_area.x
+                && mouse.column < self.table_area.x + self.table_area.width;
+            let header_offset = self.table_area.y + 2;
+            let is_within_y = mouse.row >= header_offset
+                && mouse.row < self.table_area.y + self.table_area.height.saturating_sub(1);
+            if is_within_x && is_within_y {
+                let clicked_row = (mouse.row - header_offset) as usize;
+                if clicked_row < count {
+                    self.table_state.select(Some(clicked_row));
+                    return true;
+                }
+            }
+        }
+        false
     }
 }

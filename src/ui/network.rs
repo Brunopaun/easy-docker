@@ -16,7 +16,7 @@ pub fn render_networks_tab(app: &mut App, frame: &mut Frame, area: Rect) {
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
         .split(area);
-
+    app.network_tab.table_area = main_chunks[0];
     let visible_rows = app.network_tab.get_visible_rows();
     let rows = build_rows(&visible_rows);
     let selected_index = app.network_tab.table_state.selected();
@@ -49,9 +49,7 @@ pub fn render_networks_tab(app: &mut App, frame: &mut Frame, area: Rect) {
             render_network_inspector(frame, main_chunks[1], network);
         }
         Some(NetworkRow::GroupHeader(GroupHeader {
-            name,
-            total_count,
-            ..
+            name, total_count, ..
         })) => {
             let text = vec![
                 Line::from(vec![
@@ -117,7 +115,8 @@ fn build_rows(visible_rows: &[NetworkRow<'_>]) -> Vec<Row<'static>> {
 
                 let name_cell = Cell::from(format!("{}{}", branch, name));
                 let driver_cell = Cell::from(network.driver.as_deref().unwrap_or("-").to_string());
-                let scope_cell = Cell::from(network.scope.as_deref().unwrap_or("local").to_string());
+                let scope_cell =
+                    Cell::from(network.scope.as_deref().unwrap_or("local").to_string());
                 let subnet_cell = Cell::from(get_subnet(network));
 
                 Row::new(vec![name_cell, driver_cell, scope_cell, subnet_cell])
@@ -127,7 +126,8 @@ fn build_rows(visible_rows: &[NetworkRow<'_>]) -> Vec<Row<'static>> {
 
                 let name_cell = Cell::from(format!("⚡ {}", name)).bold();
                 let driver_cell = Cell::from(network.driver.as_deref().unwrap_or("-").to_string());
-                let scope_cell = Cell::from(network.scope.as_deref().unwrap_or("local").to_string());
+                let scope_cell =
+                    Cell::from(network.scope.as_deref().unwrap_or("local").to_string());
                 let subnet_cell = Cell::from(get_subnet(network));
 
                 Row::new(vec![name_cell, driver_cell, scope_cell, subnet_cell])
@@ -177,10 +177,26 @@ fn render_network_inspector(frame: &mut Frame, area: Rect, network: &Network) {
     let scope = network.scope.as_deref().unwrap_or("local");
     let subnet = get_subnet(network);
     let gateway = get_gateway(network);
-    let internal = if network.internal.unwrap_or(false) { "Yes" } else { "No" };
-    let ipv6 = if network.enable_ipv6.unwrap_or(false) { "Yes" } else { "No" };
-    let attachable = if network.attachable.unwrap_or(false) { "Yes" } else { "No" };
-    let ingress = if network.ingress.unwrap_or(false) { "Yes" } else { "No" };
+    let internal = if network.internal.unwrap_or(false) {
+        "Yes"
+    } else {
+        "No"
+    };
+    let ipv6 = if network.enable_ipv6.unwrap_or(false) {
+        "Yes"
+    } else {
+        "No"
+    };
+    let attachable = if network.attachable.unwrap_or(false) {
+        "Yes"
+    } else {
+        "No"
+    };
+    let ingress = if network.ingress.unwrap_or(false) {
+        "Yes"
+    } else {
+        "No"
+    };
     let created_at = network
         .created
         .as_ref()
@@ -202,38 +218,14 @@ fn render_network_inspector(frame: &mut Frame, area: Rect, network: &Network) {
             Span::raw("Driver: "),
             Span::styled(driver, Style::default().fg(Color::Yellow)),
         ]),
-        Line::from(vec![
-            Span::raw("Scope: "),
-            Span::raw(scope),
-        ]),
-        Line::from(vec![
-            Span::raw("Subnet: "),
-            Span::raw(subnet),
-        ]),
-        Line::from(vec![
-            Span::raw("Gateway: "),
-            Span::raw(gateway),
-        ]),
-        Line::from(vec![
-            Span::raw("Internal: "),
-            Span::raw(internal),
-        ]),
-        Line::from(vec![
-            Span::raw("IPv6 Enabled: "),
-            Span::raw(ipv6),
-        ]),
-        Line::from(vec![
-            Span::raw("Attachable: "),
-            Span::raw(attachable),
-        ]),
-        Line::from(vec![
-            Span::raw("Ingress: "),
-            Span::raw(ingress),
-        ]),
-        Line::from(vec![
-            Span::raw("Created At: "),
-            Span::raw(created_at),
-        ]),
+        Line::from(vec![Span::raw("Scope: "), Span::raw(scope)]),
+        Line::from(vec![Span::raw("Subnet: "), Span::raw(subnet)]),
+        Line::from(vec![Span::raw("Gateway: "), Span::raw(gateway)]),
+        Line::from(vec![Span::raw("Internal: "), Span::raw(internal)]),
+        Line::from(vec![Span::raw("IPv6 Enabled: "), Span::raw(ipv6)]),
+        Line::from(vec![Span::raw("Attachable: "), Span::raw(attachable)]),
+        Line::from(vec![Span::raw("Ingress: "), Span::raw(ingress)]),
+        Line::from(vec![Span::raw("Created At: "), Span::raw(created_at)]),
         Line::from(vec![
             Span::raw("Labels: "),
             Span::raw(format!("{} label(s)", labels_count)),

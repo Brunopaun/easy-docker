@@ -1,9 +1,11 @@
 #![allow(dead_code)]
 
 use bollard::Docker;
-use bollard::models::{ContainerSummary, Volume, Network, ImageSummary};
+use bollard::models::{ContainerSummary, ImageSummary, Network, Volume};
 use bollard::query_parameters::{
-    ListContainersOptions, ListImagesOptions, ListNetworksOptionsBuilder, ListVolumesOptionsBuilder, LogsOptions, RemoveContainerOptions, RemoveImageOptions, RestartContainerOptions, StartContainerOptions, StopContainerOptions
+    ListContainersOptions, ListImagesOptions, ListNetworksOptionsBuilder,
+    ListVolumesOptionsBuilder, LogsOptions, RemoveContainerOptions, RemoveImageOptions,
+    RestartContainerOptions, StartContainerOptions, StopContainerOptions,
 };
 use futures_util::StreamExt;
 
@@ -57,9 +59,7 @@ pub async fn list_volumes(docker: &Docker) -> Result<Vec<Volume>, bollard::error
 }
 
 pub async fn remove_volume(docker: &Docker, name: &str) -> Result<(), bollard::errors::Error> {
-    let options = bollard::query_parameters::RemoveVolumeOptions {
-        force: false,
-    };
+    let options = bollard::query_parameters::RemoveVolumeOptions { force: false };
     docker.remove_volume(name, Some(options)).await
 }
 
@@ -121,4 +121,3 @@ pub async fn get_container_logs(
 
     Ok(logs)
 }
-

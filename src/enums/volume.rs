@@ -1,5 +1,5 @@
-use bollard::models::Volume;
 use crate::models::generics::{AsGroupHeader, GroupHeader};
+use bollard::models::Volume;
 
 pub enum VolumeRow<'a> {
     GroupHeader(GroupHeader<'a>),

@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
-    Frame,
 };
 
 use crate::models::app::{App, DeleteTarget};
@@ -56,33 +56,65 @@ pub fn render_confirm_delete_modal(app: &App, frame: &mut Frame, area: Rect) {
         DeleteTarget::Container(_) => "This action permanently deletes the container.",
         DeleteTarget::Image(_) => "This action permanently removes the image from Docker.",
         DeleteTarget::Network(_) => "This action permanently removes the network from Docker.",
-        DeleteTarget::GroupContainers(_, _) => "This action permanently deletes ALL containers in this compose group.",
-        DeleteTarget::GroupVolumes(_, _) => "This action permanently deletes ALL volumes in this compose group.",
-        DeleteTarget::GroupImages(_, _) => "This action permanently deletes ALL images in this compose group.",
-        DeleteTarget::GroupNetworks(_, _) => "This action permanently deletes ALL networks in this compose group.",
+        DeleteTarget::GroupContainers(_, _) => {
+            "This action permanently deletes ALL containers in this compose group."
+        }
+        DeleteTarget::GroupVolumes(_, _) => {
+            "This action permanently deletes ALL volumes in this compose group."
+        }
+        DeleteTarget::GroupImages(_, _) => {
+            "This action permanently deletes ALL images in this compose group."
+        }
+        DeleteTarget::GroupNetworks(_, _) => {
+            "This action permanently deletes ALL networks in this compose group."
+        }
     };
 
     let text = vec![
         Line::from(vec![
-            Span::styled("Are you sure you want to delete this ", Style::default().fg(Color::White)),
-            Span::styled(item_type.to_lowercase(), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "Are you sure you want to delete this ",
+                Style::default().fg(Color::White),
+            ),
+            Span::styled(
+                item_type.to_lowercase(),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::raw("?"),
         ]),
         Line::from(""),
         Line::from(vec![
             Span::styled("Target: ", Style::default().fg(Color::Gray)),
-            Span::styled(item_name, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                item_name,
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("⚠️ Warning: ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "⚠️ Warning: ",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            ),
             Span::styled(warning_msg, Style::default().fg(Color::LightRed)),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled(" [y / Enter] ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                " [y / Enter] ",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            ),
             Span::raw("Confirm Delete    "),
-            Span::styled(" [n / Esc] ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                " [n / Esc] ",
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::raw("Cancel"),
         ]),
     ];

@@ -1,13 +1,13 @@
-use std::ops::{Deref, DerefMut};
-use bollard::models::Volume;
 use bollard::Docker;
+use bollard::models::Volume;
+use std::ops::{Deref, DerefMut};
 use tokio::sync::mpsc::Sender;
 
+use crate::AppEvent;
 use crate::components::tab::Tab;
+use crate::enums::volume::VolumeRow;
 use crate::models::generics::GroupHeader;
 use crate::services::docker::remove_volume;
-use crate::AppEvent;
-use crate::enums::volume::VolumeRow;
 
 pub struct VolumesTab {
     pub tab: Tab,
@@ -38,7 +38,11 @@ impl VolumesTab {
     pub fn get_visible_rows(&self) -> Vec<VolumeRow<'_>> {
         self.tab.build_grouped_rows(
             &self.volumes,
-            |c| c.labels.get("com.docker.compose.project").map(|s| s.as_str()),
+            |c| {
+                c.labels
+                    .get("com.docker.compose.project")
+                    .map(|s| s.as_str())
+            },
             |_| true,
             VolumeRow::GroupHeader,
             |c, is_last| VolumeRow::ChildVolume {
@@ -73,15 +77,9 @@ impl VolumesTab {
     }
 
     pub fn handle_mouse_click(&mut self, mouse: crossterm::event::MouseEvent) {
-        if mouse.kind == crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left) {
-            if mouse.row >= 5 {
-                let clicked_row = (mouse.row - 5) as usize;
-                let rows_count = self.get_visible_rows().len();
-                if clicked_row < rows_count {
-                    self.table_state.select(Some(clicked_row));
-                    self.toggle_group();
-                }
-            }
+        let count = self.get_visible_rows().len();
+        if self.tab.handle_mouse_click(mouse, count) {
+            self.toggle_group();
         }
     }
 
@@ -89,8 +87,9 @@ impl VolumesTab {
         let selected_index = self.table_state.selected()?;
         let rows = self.get_visible_rows();
         match rows.get(selected_index)? {
-            VolumeRow::ChildVolume { volume, .. }
-            | VolumeRow::StandaloneVolume { volume } => Some(volume.name.clone()),
+            VolumeRow::ChildVolume { volume, .. } | VolumeRow::StandaloneVolume { volume } => {
+                Some(volume.name.clone())
+            }
             _ => None,
         }
     }
@@ -105,7 +104,9 @@ impl VolumesTab {
             *toast = Some(format!("⏳ Deleting volume {}...", name));
 
             tokio::spawn(async move {
-                let res = remove_volume(&client, &name).await.map_err(|e| e.to_string());
+                let res = remove_volume(&client, &name)
+                    .await
+                    .map_err(|e| e.to_string());
                 let _ = tx
                     .send(AppEvent::VolumeActionDone {
                         name,
@@ -150,11 +151,16 @@ impl VolumesTab {
     ) {
         if let Some(client) = client.clone() {
             let count = names.len();
-            *toast = Some(format!("⏳ Deleting {} volumes in group {}...", count, group_name));
+            *toast = Some(format!(
+                "⏳ Deleting {} volumes in group {}...",
+                count, group_name
+            ));
 
             tokio::spawn(async move {
                 for name in names {
-                    let res = remove_volume(&client, &name).await.map_err(|e| e.to_string());
+                    let res = remove_volume(&client, &name)
+                        .await
+                        .map_err(|e| e.to_string());
                     let _ = tx
                         .send(AppEvent::VolumeActionDone {
                             name,
@@ -169,5 +175,3 @@ impl VolumesTab {
         }
     }
 }
-
-

@@ -16,7 +16,7 @@ pub fn render_images_tab(app: &mut App, frame: &mut Frame, area: Rect) {
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
         .split(area);
-
+    app.images_tab.table_area = main_chunks[0];
     let visible_rows = app.images_tab.get_visible_rows();
 
     let rows: Vec<Row> = visible_rows
@@ -207,13 +207,13 @@ fn format_id(id: &str) -> String {
 }
 
 fn format_size(bytes: i64) -> String {
-    let result:String;
+    let result: String;
 
     const KB: f64 = 1024.0;
     const MB: f64 = KB * 1024.0;
     const GB: f64 = MB * 1024.0;
     let size = bytes as f64;
-    
+
     if size >= GB {
         result = format!("{:.2} GB", size / GB);
     } else if size >= MB {
@@ -228,7 +228,7 @@ fn format_size(bytes: i64) -> String {
 }
 
 fn format_timestamp(timestamp: i64) -> String {
-    let result:String;
+    let result: String;
     if timestamp == 0 {
         return "N/A".to_string();
     }

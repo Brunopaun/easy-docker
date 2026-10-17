@@ -1,7 +1,7 @@
 # 🐳 Easy Docker
 
 <p align="center">
-  <img src="assets/logo.jpg" alt="Easy Docker Whale Mascot" width="400"/>
+  <img src="https://raw.githubusercontent.com/Brunopaun/easy-docker/main/assets/logo.jpg" alt="Easy Docker Whale Mascot" width="400"/>
 </p>
 
 > A fast, lightweight, and modern Terminal User Interface (TUI) for managing Docker containers, images, volumes, and networks built in Rust.

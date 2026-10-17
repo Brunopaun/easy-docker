@@ -3,13 +3,13 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table, Wrap},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table},
 };
 
-use crate::components::container::ContainerInspectorView;
 use crate::enums::container::ContainerRow;
 use crate::models::app::App;
 use crate::models::generics::GroupHeader;
+use crate::{components::container::ContainerInspectorView, models::app::ViewMode};
 
 pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
     let main_chunks = Layout::default()
@@ -17,6 +17,7 @@ pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
         .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
         .split(area);
 
+    app.containers_tab.table_area = main_chunks[0];
     let visible_rows = app.containers_tab.get_visible_rows();
 
     let rows: Vec<Row> = visible_rows
@@ -141,19 +142,6 @@ pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
             let name = raw_name.strip_prefix('/').unwrap_or(raw_name);
 
             if app.containers_tab.inspector_view == ContainerInspectorView::Logs {
-                let auto_scroll_status = if app.containers_tab.auto_scroll {
-                    "Auto-Scroll: [ON]"
-                } else {
-                    "Auto-Scroll: [OFF]"
-                };
-
-                let title_text = format!(
-                    " 📋 Logs: {} │ {} │ lines: {} [d: Details] ",
-                    name,
-                    auto_scroll_status,
-                    app.containers_tab.logs.len()
-                );
-
                 let content_lines: Vec<Line> = match (
                     app.containers_tab.is_loading_logs,
                     app.containers_tab.logs.is_empty(),
@@ -173,24 +161,55 @@ pub fn render_containers_tab(app: &mut App, frame: &mut Frame, area: Rect) {
                         .map(|l| Line::from(Span::raw(l.clone())))
                         .collect(),
                 };
-
-                let block = Block::default().borders(Borders::ALL).title(Span::styled(
-                    title_text,
-                    Style::default().fg(Color::Cyan).bold(),
-                ));
+                let border_color = if app.view_mode == ViewMode::LogViewer {
+                    Color::Yellow
+                } else {
+                    Color::DarkGray
+                };
 
                 let visible_height = main_chunks[1].height.saturating_sub(2) as usize;
+                app.containers_tab.visible_height = visible_height;
+                let total_lines = app.containers_tab.logs.len();
+                let max_scroll = app.containers_tab.max_scroll_offset();
+
+                if app.containers_tab.logs_scroll_offset > max_scroll {
+                    app.containers_tab.logs_scroll_offset = max_scroll;
+                }
 
                 let scroll_offset =
                     if app.containers_tab.auto_scroll && !app.containers_tab.logs.is_empty() {
-                        app.containers_tab.logs.len().saturating_sub(visible_height) as u16
+                        max_scroll as u16
                     } else {
                         app.containers_tab.logs_scroll_offset as u16
                     };
 
+                let current_bottom = if total_lines == 0 {
+                    0
+                } else {
+                    (scroll_offset as usize + visible_height).min(total_lines)
+                };
+
+                let status_badge = if app.containers_tab.auto_scroll {
+                    " 🟢 LIVE (Auto-scroll) "
+                } else {
+                    " 🟡 PAUSED (↑/↓ to scroll, 'f' to resume, 'esc/d' to leave) "
+                };
+
+                let title_text = format!(
+                    " 📜 Logs [{}/{}] {} ",
+                    current_bottom, total_lines, status_badge
+                );
+
+                let block = Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(border_color)
+                    .title(Span::styled(
+                        title_text,
+                        Style::default().fg(Color::Cyan).bold(),
+                    ));
+
                 let logs_widget = Paragraph::new(content_lines)
                     .block(block)
-                    .wrap(Wrap { trim: false })
                     .scroll((scroll_offset, 0));
 
                 frame.render_widget(logs_widget, main_chunks[1]);
