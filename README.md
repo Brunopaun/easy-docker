@@ -15,33 +15,61 @@
 
 ## ⚡ Installation
 
-### Option 1: Quick Install Script (No Rust Required)
-
-Install the latest pre-compiled binary on macOS or Linux with a single command:
+### Homebrew (macOS & Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Brunopaun/easy-docker/main/install.sh | sh
+brew install Brunopaun/easy-docker/easy-docker
 ```
 
 ---
 
-### Option 2: Via Cargo
-
-If you have Rust installed, install `easy-docker` directly from [crates.io](https://crates.io):
+### Shell Script (macOS & Linux, No Rust Required)
 
 ```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Brunopaun/easy-docker/releases/latest/download/easy-docker-installer.sh | sh
+```
+
+---
+
+### Windows (PowerShell or Chocolatey)
+
+**PowerShell:**
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://github.com/Brunopaun/easy-docker/releases/latest/download/easy-docker-installer.ps1 | iex"
+```
+
+**Chocolatey:**
+```powershell
+choco install easy-docker
+```
+
+---
+
+### Cargo / Cargo Binstall
+
+Requires [Rust & Cargo](https://www.rust-lang.org/tools/install/):
+
+```bash
+# Instant binary install (no compilation)
+cargo binstall easy-docker
+
+# Or compile from source via crates.io
 cargo install easy-docker
 ```
 
-Then launch it anytime:
-
-```bash
-easy-docker
-```
-
 ---
 
-### Option 3: Build from Source
+### Build from Source
+
+Building from source requires Rust. If you don't have Rust installed yet, refer to the [Rust Installation Guide](https://www.rust-lang.org/tools/install/) or install via [rustup](https://rustup.rs/):
+
+```bash
+# macOS / Linux
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+> **Windows:** Download and run [`rustup-init.exe`](https://rustup.rs/) or check the [installation instructions](https://www.rust-lang.org/tools/install/).
+
+Once Rust is installed, clone and install:
 
 ```bash
 git clone https://github.com/brunopassosaun/easy-docker.git
