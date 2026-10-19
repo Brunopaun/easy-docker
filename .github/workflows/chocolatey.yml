@@ -1,0 +1,35 @@
+name: Publish to Chocolatey
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish-choco:
+    name: Pack and Push to Chocolatey
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test Chocolatey package
+        shell: pwsh
+        run: |
+          cd packaging/chocolatey
+          choco pack easy-docker.nuspec
+          # Test installing from the generated local .nupkg
+          choco install easy-docker --source . -y --no-progress
+          # Test uninstall
+          choco uninstall easy-docker -y
+
+      - name: Push to Chocolatey
+        env:
+          CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+        shell: pwsh
+        run: |
+          if (-not $env:CHOCO_API_KEY) {
+            Write-Error "CHOCO_API_KEY secret is not set!"
+            exit 1
+          }
+
+          cd packaging/chocolatey
+          choco push (Get-ChildItem -Filter *.nupkg).FullName --api-key $env:CHOCO_API_KEY --source https://push.chocolatey.org/
