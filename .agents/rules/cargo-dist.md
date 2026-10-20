@@ -9,6 +9,11 @@
 2. **Clean Configuration Preference**:
    - The user prefers clean configuration files without boilerplate comments where possible. When stripping comments, always verify against tool integrity checks (like `cargo-dist`).
 
-3. **Packaging & Releases**:
+3. **Release-Plz & Cargo-Dist Integration**:
+   - `release-plz.toml` has `git_release_enable = false`.
+   - `release-plz` creates version bump PRs, updates changelogs, pushes git tags, and publishes to crates.io.
+   - `cargo-dist` builds the binaries and creates the GitHub Release with attached assets and Homebrew formula.
+
+4. **Packaging & Releases**:
    - `CHOCO_API_KEY` and `HOMEBREW_TAP_TOKEN` are GitHub repository secrets inside `easy-docker`.
    - Chocolatey packages are defined in `packaging/chocolatey/` and tested via `.github/workflows/chocolatey.yml`.
