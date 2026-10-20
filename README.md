@@ -72,7 +72,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 Once Rust is installed, clone and install:
 
 ```bash
-git clone https://github.com/brunopassosaun/easy-docker.git
+git clone https://github.com/Brunopaun/easy-docker.git
 cd easy-docker
 cargo install --path .
 ```
