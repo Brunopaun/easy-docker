@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8](https://github.com/Brunopaun/easy-docker/compare/v0.1.7...v0.1.8) - 2026-10-20
+
+### Other
+
+- configure release-plz to delegate git releases to cargo-dist
+
 ## [0.1.7](https://github.com/Brunopaun/easy-docker/compare/v0.1.6...v0.1.7) - 2026-10-19
 
 ### Added
