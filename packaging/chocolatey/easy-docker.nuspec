@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>easy-docker</id>
-    <version>0.1.6</version>
+    <version>0.1.7</version>
     <title>Easy Docker</title>
     <authors>Bruno Passos</authors>
     <owners>Bruno Passos</owners>
@@ -16,7 +16,7 @@
     <description>A fast, lightweight, and modern Terminal User Interface (TUI) for managing Docker containers, images, volumes, and networks built in Rust.</description>
     <summary>A fast, lightweight, and modern TUI for managing Docker containers</summary>
     <tags>docker tui terminal container ratatui cli</tags>
-    <releaseNotes>https://github.com/Brunopaun/easy-docker/releases/tag/v0.1.6</releaseNotes>
+    <releaseNotes>https://github.com/Brunopaun/easy-docker/releases/tag/v0.1.7</releaseNotes>
   </metadata>
   <files>
     <file src="tools\**" target="tools" />
