@@ -12,6 +12,7 @@
     <docsUrl>https://github.com/Brunopaun/easy-docker/blob/main/README.md</docsUrl>
     <bugTrackerUrl>https://github.com/Brunopaun/easy-docker/issues</bugTrackerUrl>
     <licenseUrl>https://github.com/Brunopaun/easy-docker/blob/main/LICENSE</licenseUrl>
+    <copyright>Copyright (c) 2026 Bruno Passos</copyright>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>A fast, lightweight, and modern Terminal User Interface (TUI) for managing Docker containers, images, volumes, and networks built in Rust.</description>
     <summary>A fast, lightweight, and modern TUI for managing Docker containers</summary>
