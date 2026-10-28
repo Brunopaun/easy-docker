@@ -25,6 +25,8 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         ])
         .split(area);
 
+    app.header_area = chunks[0];
+
     render_header(app, frame, chunks[0]);
     render_main_content(app, frame, chunks[1]);
     render_footer(app, frame, chunks[2]);
@@ -35,12 +37,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 }
 
 fn render_header(app: &App, frame: &mut Frame, area: Rect) {
-    let titles = vec![
-        "[1] Containers",
-        "[2] Images",
-        "[3] Volumes",
-        "[4] Networks",
-    ];
+    let raw_titles = ["[1] Containers", "[2] Images", "[3] Volumes", "[4] Networks"];
     let selected_index = match app.active_tab {
         ActiveTab::Containers => 0,
         ActiveTab::Images => 1,
@@ -48,21 +45,37 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
         ActiveTab::Networks => 3,
     };
 
+    let titles: Vec<Line> = raw_titles
+        .iter()
+        .enumerate()
+        .map(|(i, &title)| {
+            if i == selected_index {
+                Line::from(Span::styled(
+                    title,
+                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                ))
+            } else if app.hovered_tab == Some(i) {
+                Line::from(Span::styled(
+                    title,
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED),
+                ))
+            } else {
+                Line::from(Span::styled(
+                    title,
+                    Style::default().fg(Color::DarkGray),
+                ))
+            }
+        })
+        .collect();
+
     let tabs = Tabs::new(titles)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(" 🐳 Easy Docker "),
-        )
-        .highlight_style(
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        )
+        .block(Block::default().borders(Borders::ALL).title(" 🐳 Easy Docker "))
+        .highlight_style(Style::default())
         .select(selected_index);
 
     frame.render_widget(tabs, area);
 }
+
 
 fn render_main_content(app: &mut App, frame: &mut Frame, area: Rect) {
     match app.active_tab {

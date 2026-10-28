@@ -508,13 +508,36 @@ async fn main() -> color_eyre::Result<()> {
                     },
                     _ => {}
                 },
-                AppEvent::Mouse(mouse) => match app.active_tab {
-                    models::app::ActiveTab::Containers => {
-                        app.containers_tab.handle_mouse_click(mouse)
+                AppEvent::Mouse(mouse) => {
+                    let tab_under_mouse = app.get_tab_at_mouse(mouse.column, mouse.row);
+
+                    app.hovered_tab = tab_under_mouse;
+
+                    if mouse.kind
+                        == crossterm::event::MouseEventKind::Down(
+                            crossterm::event::MouseButton::Left,
+                        )
+                    {
+                        if let Some(target_tab) = tab_under_mouse {
+                            app.containers_tab.stop_log_stream();
+                            app.active_tab = match target_tab {
+                                0 => models::app::ActiveTab::Containers,
+                                1 => models::app::ActiveTab::Images,
+                                2 => models::app::ActiveTab::Volumes,
+                                _ => models::app::ActiveTab::Networks,
+                            };
+                            continue;
+                        }
                     }
-                    models::app::ActiveTab::Images => app.images_tab.handle_mouse_click(mouse),
-                    models::app::ActiveTab::Volumes => app.volumes_tab.handle_mouse_click(mouse),
-                    models::app::ActiveTab::Networks => app.network_tab.handle_mouse_click(mouse),
+
+                    match app.active_tab {
+                        models::app::ActiveTab::Containers => {
+                            app.containers_tab.handle_mouse_click(mouse)
+                        }
+                        models::app::ActiveTab::Images => app.images_tab.handle_mouse_click(mouse),
+                        models::app::ActiveTab::Volumes => app.volumes_tab.handle_mouse_click(mouse),
+                        models::app::ActiveTab::Networks => app.network_tab.handle_mouse_click(mouse),
+                    }
                 },
                 AppEvent::Tick => {
                     // Periodic UI animation / tick updates if needed

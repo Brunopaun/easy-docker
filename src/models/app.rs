@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use bollard::Docker;
+use ratatui::layout::Rect;
 
 use crate::components::{
     container::ContainersTab, image::ImagesTab, network::NetworkTab, volume::VolumesTab,
@@ -46,6 +47,9 @@ pub struct App {
     pub delete_target: Option<DeleteTarget>,
     pub images_tab: ImagesTab,
     pub network_tab: NetworkTab,
+    pub hovered_tab: Option<usize>,
+    pub mouse_pos: Option<(u16, u16)>,
+    pub header_area: Rect,
 }
 
 impl App {
@@ -62,6 +66,33 @@ impl App {
             delete_target: None,
             images_tab: ImagesTab::new(),
             network_tab: NetworkTab::new(),
+            hovered_tab: None,
+            mouse_pos: None,
+            header_area: Rect::default(),
         }
+    }
+
+    pub fn get_tab_at_mouse(&self, mouse_col: u16, mouse_row: u16) -> Option<usize> {
+        Self::tab_at_mouse(self.header_area, mouse_col, mouse_row)
+    }
+
+    pub fn tab_at_mouse(header_area: Rect, mouse_col: u16, mouse_row: u16) -> Option<usize> {
+        if mouse_row != header_area.y + 1 {
+            return None;
+        }
+
+        let titles = ["[1] Containers", "[2] Images", "[3] Volumes", "[4] Networks"];
+        let divider_width = 3;
+        let mut current_x = header_area.x + 2;
+
+        for (i, title) in titles.iter().enumerate() {
+            let title_width = title.chars().count() as u16;
+            if mouse_col >= current_x && mouse_col < current_x + title_width {
+                return Some(i);
+            }
+            current_x += title_width + divider_width;
+        }
+
+        None
     }
 }
