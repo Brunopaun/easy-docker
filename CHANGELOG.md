@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9](https://github.com/Brunopaun/easy-docker/compare/v0.1.8...v0.1.9) - 2026-10-28
+
+### Added
+
+- add mouse support and hover effects for navigation tabs
+
+### Fixed
+
+- *(chocolatey)* remove redundant license/verification files and add copyright tag
+- correct repository URL casing from brunopassosaun to Brunopaun
+
+### Other
+
+- *(chocolatey)* update package metadata to v0.1.7
+
 ## [0.1.8](https://github.com/Brunopaun/easy-docker/compare/v0.1.7...v0.1.8) - 2026-10-20
 
 ### Other
